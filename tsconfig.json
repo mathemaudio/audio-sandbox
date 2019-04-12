@@ -1,0 +1,30 @@
+
+
+{
+  //"version":"2.1.4",
+  "compilerOptions": {
+    "allowJs": false,/// let's leave it "false", because it feels like it makes the compilation faster
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "baseUrl": ".",
+    "paths": {
+      "*":[
+        "*"
+      ]
+    },
+    "module": "amd",
+    "target": "es5",
+    "outFile": "./bin/bin.js",
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "sourceMap": true
+  },
+  "include": [
+    "ts/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
