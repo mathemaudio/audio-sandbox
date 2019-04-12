@@ -28,7 +28,7 @@ export class AuEngine extends AuNode{
   private skipProcessing=Stor.has(this.nameSkip)?Stor.get(this.nameSkip):false;
   private veryFirst = true;
   readonly audioCtx:AudioContext;
-  private channels = 2;
+  private readonly channels = 2;/// should not be changed, otherwise it will not work with AuSample Class
   volume=1;//.3;
   getFirstNode=(fin?:AuNode)=>{
     if(typeof fin=='undefined')fin=this;
@@ -44,7 +44,6 @@ export class AuEngine extends AuNode{
     const fin:AuNode=this;
     let node=this.getFirstNode(fin);
     while (node!=fin && node.child!=null){
-      node.sampleRate=this.sampleRate;
       node.process(buf);
       node=node.child;
     }
@@ -72,14 +71,23 @@ export class AuEngine extends AuNode{
       for (let channel=0; channel<buf.numberOfChannels;++channel)
         buf.getChannelData(channel)[i]=0;
   }
+  assertChannels(num:number){
+    if(num!=2){
+      const msg='Number of channels must be exactly 2, otherwise this engine will not be able to work';
+      alert(msg);
+      throw msg;
+    }
+  }
   static readonly BUF_SZ=1024;
   private attachNodes(){
+    this.assertChannels(this.channels);
+
     const node = this.mainScriptNode = this.audioCtx.createScriptProcessor(AuEngine.BUF_SZ, this.channels, this.channels);
-    this.sampleRate = this.audioCtx.sampleRate;
     node.onaudioprocess = (e:AudioProcessingEvent)=>this.process(e.outputBuffer);
     node.connect(this.audioCtx.destination);
     this.lastAttachedNode=node;
   }
+  // get sampleRateGlobal(){ return this.audioCtx.sampleRate; }
   private mainScriptNode:ScriptProcessorNode;
   private lastAttachedNode:AudioNode;
   insertJSAudioNodeToEnd(node:AudioNode){

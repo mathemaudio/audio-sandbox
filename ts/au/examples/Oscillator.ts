@@ -13,7 +13,7 @@ export class Oscillator extends AuNode{
   on:boolean=true;
   process(buffer: AudioBuffer){
     for(let i=0;i<buffer.length;++i){
-      const step = this.frequency/this.sampleRate;
+      const step = this.frequency/buffer.sampleRate;
       this.incPosition(step);
       if(this.position>1)this.position-=1;
       const val=this.on? WaveForm.sine(this.position):0;

@@ -14,7 +14,7 @@ export class NoteOscillator extends Oscillator{
       const on=this.on=n!=null;
       if(this.on)
         this.frequency = (on?(n.freqPitched):0)*this.multiplier;
-      const step = this.frequency/this.sampleRate;
+      const step = this.frequency/buffer.sampleRate;
       this.incPosition(step);
       const val=this.on?
         // WaveForm.trohoid(this.position,(on?n.vel:.5)*Calc.mix(1,3, midi.modulation))
