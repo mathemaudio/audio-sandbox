@@ -1,5 +1,4 @@
 import {AuNode} from "../AuNode";
-import {AuSample} from "../AuSample";
 
 export type AuBiquadType="one-pole lp"
   |"one-pole hp"
@@ -295,13 +294,13 @@ export class AuBiquadFilter extends AuNode{
   }
   memories:MemoryCell[];
 
-  onSample(s: AuSample){
+  onSample(s: number){
     if(this.onSampleAction!=null)
       return this.onSampleAction(s);
     return s;
   }
 
-  onSampleAction:(s:AuSample)=>number;
+  onSampleAction:(s:number)=>number;
 
   initOnSampleAction(){
     let x:number;

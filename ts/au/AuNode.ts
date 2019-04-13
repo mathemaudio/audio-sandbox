@@ -1,8 +1,9 @@
 /**
  * A basic audio node
  */
-import {AuSample} from "./AuSample";
 import {AuEngine} from "./AuEngine";
+import {Oscillator} from "./examples/Oscillator";
+import {Calc} from "../tools/Calc";
 
 export class AuNode {
   constructor(){
@@ -10,17 +11,21 @@ export class AuNode {
   }
   initSampleRate(){ this.sampleRate=AuEngine._.sampleRate; }
 
-  onSample(s:AuSample):number{
-    /// this example makes things 6db quieter
+  onSample(s:number):number{
     return s;
   }
-  process(buffer:AudioBuffer){
-    AuEngine._.assertChannels(buffer.numberOfChannels);
-    this.sampleRate=buffer.sampleRate;
-    const spl=0, data=buffer.getChannelData(0);
-    for(let i=0;i<buffer.length;++i)
-      data[i] = this.onSample(data[i]);
+  onSampleParented(s:number):number{
+    if(this.parent)
+      s = this.parent.onSampleParented(s);
+    s = this.onSample(this.beforeOnSample(s));
+    if(this.parentAmplitude)
+      s = s * Calc.remix(
+              -1, 1,
+                    this.parentAmplitude.onSampleParented(0),
+              .0, 1);
+    return s;
   }
+  beforeOnSample:(s:number)=>number=s=>s;
 
 
   sampleRate:number;
@@ -31,8 +36,17 @@ export class AuNode {
     child.parent=this;
     return child;
   }
+  fmTo(child:Oscillator){
+    this.child=child;
+    child.parentFm=this;
+    return child;
+  }
 
+  parentAmplitude:AuNode=null;
+  amplitudeTo(child:AuNode){
+    this.child=child;
+    child.parentAmplitude=this;
+    return child;
+  }
 
-
-  toStr():string{ return 'AuNode'; }
 }

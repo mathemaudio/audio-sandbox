@@ -34,40 +34,6 @@ define("tools/Stor", ["require", "exports"], function (require, exports) {
     }());
     exports.Stor = Stor;
 });
-define("au/AuSample", ["require", "exports"], function (require, exports) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-});
-define("au/AuNode", ["require", "exports", "au/AuEngine"], function (require, exports, AuEngine_1) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var AuNode = (function () {
-        function AuNode() {
-            this.child = null;
-            this.parent = null;
-            this.initSampleRate();
-        }
-        AuNode.prototype.initSampleRate = function () { this.sampleRate = AuEngine_1.AuEngine._.sampleRate; };
-        AuNode.prototype.onSample = function (s) {
-            return s;
-        };
-        AuNode.prototype.process = function (buffer) {
-            AuEngine_1.AuEngine._.assertChannels(buffer.numberOfChannels);
-            this.sampleRate = buffer.sampleRate;
-            var spl = 0, data = buffer.getChannelData(0);
-            for (var i = 0; i < buffer.length; ++i)
-                data[i] = this.onSample(data[i]);
-        };
-        AuNode.prototype.outTo = function (child) {
-            this.child = child;
-            child.parent = this;
-            return child;
-        };
-        AuNode.prototype.toStr = function () { return 'AuNode'; };
-        return AuNode;
-    }());
-    exports.AuNode = AuNode;
-});
 define("tools/Calc", ["require", "exports"], function (require, exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -93,7 +59,162 @@ define("tools/Calc", ["require", "exports"], function (require, exports) {
     }());
     exports.Calc = Calc;
 });
-define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require, exports, Calc_1) {
+define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, exports, Calc_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var Trohoid = (function () {
+        function Trohoid() {
+            this.auxRadius = .0;
+            this.radiusVal = .3;
+            this.compensate = .9;
+            this.targetExact = 88200;
+            this.iterationsTotal = 0;
+        }
+        Trohoid.prototype.funcRude = function (x) { return this.funcRudeAux(x, 1); };
+        Trohoid.prototype.funcRudeAux = function (x, amountOfAux) {
+            var _this = this;
+            var radiusVal = this.radiusVal, auxRadius = this.auxRadius;
+            var iterationsTotal = this.iterationsTotal, lastI = .0, result = 0., exa = 2.;
+            var radius = Math.min(1, radiusVal + auxRadius * amountOfAux);
+            var Pi2 = Math.PI * 2;
+            iterationsTotal = 0;
+            x -= ~~x;
+            var find = function (start, roughness) {
+                var step = 1 / roughness;
+                var i = start, I = .0, X = 0;
+                while (i < 1) {
+                    I = i * Pi2;
+                    X = x * Pi2;
+                    if (X < I + Math.sin(I) * radius)
+                        break;
+                    lastI = i;
+                    i += step;
+                    iterationsTotal++;
+                }
+                return Math.cos(I) * radius / Calc_1.Calc.mix(1, radius * 2, _this.compensate);
+            };
+            while (exa <= this.targetExact) {
+                result = find(lastI, exa);
+                exa *= 5;
+            }
+            return result;
+        };
+        return Trohoid;
+    }());
+    var remix = Calc_1.Calc.remix;
+    var WaveForm = (function () {
+        function WaveForm() {
+        }
+        WaveForm.sine = function (phase) { return Math.sin(phase * Math.PI * 2); };
+        WaveForm.square = function (phase) { return phase < .5 ? 1 : -1; };
+        WaveForm.triangle = function (phase) {
+            return phase < .25 ? remix(0, .25, phase, 0, 1) :
+                phase < .75 ? remix(.25, .75, phase, 1, -1) :
+                    remix(.75, 1, phase, -1, 0);
+        };
+        WaveForm.saw = function (phase) { return -phase; };
+        WaveForm.triSawFolded = function (phase, fold) {
+            var top = (1 - fold) * .25;
+            var bottom = 1 - top;
+            return phase < top ? remix(0, top, phase, 0, 1) :
+                phase < bottom ? remix(top, bottom, phase, 1, -1) :
+                    remix(bottom, 1, phase, -1, 0);
+        };
+        WaveForm.pow = function (fn, phase, strength) {
+            var v = Calc_1.Calc.unmix(-1, 1, fn(phase));
+            v = Math.pow(v, strength);
+            return Calc_1.Calc.mix(-1, 1, v);
+        };
+        WaveForm.simplePhaseModulation = function (phase, secondModulationLevel, secondPhaseChanger) {
+            if (secondPhaseChanger === void 0) { secondPhaseChanger = 0; }
+            var s = WaveForm.sine(phase + WaveForm.sine(phase + secondPhaseChanger) * secondModulationLevel);
+            return s;
+        };
+        WaveForm.trohoid = function (phase, radius) {
+            var tro = WaveForm.tro;
+            tro.radiusVal = radius;
+            return tro.funcRude(phase);
+        };
+        WaveForm.tro = new Trohoid();
+        return WaveForm;
+    }());
+    exports.WaveForm = WaveForm;
+});
+define("au/examples/Oscillator", ["require", "exports", "au/AuNode", "au/WaveForm"], function (require, exports, AuNode_1, WaveForm_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var Oscillator = (function (_super) {
+        __extends(Oscillator, _super);
+        function Oscillator(frequency, waveGenerator) {
+            if (waveGenerator === void 0) { waveGenerator = null; }
+            var _this = _super.call(this) || this;
+            _this.frequency = frequency;
+            _this.waveGenerator = waveGenerator;
+            _this.position = 0.;
+            _this.on = true;
+            _this.parentFm = null;
+            if (_this.waveGenerator == null)
+                _this.waveGenerator = function (pos) { return WaveForm_1.WaveForm.sine(pos); };
+            return _this;
+        }
+        Oscillator.prototype.incPosition = function (step) {
+            this.position += step;
+            if (this.position > 1)
+                this.position -= 1;
+        };
+        Oscillator.prototype.onSample = function (s) {
+            var freqMul = 1 + (this.parentFm ? (this.parentFm.onSampleParented(0) * 10) : 0);
+            var step = (this.frequency * freqMul) / this.sampleRate;
+            this.incPosition(step);
+            return s + (this.on ? this.waveGenerator(this.position) : 0);
+        };
+        return Oscillator;
+    }(AuNode_1.AuNode));
+    exports.Oscillator = Oscillator;
+});
+define("au/AuNode", ["require", "exports", "au/AuEngine", "tools/Calc"], function (require, exports, AuEngine_1, Calc_2) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var AuNode = (function () {
+        function AuNode() {
+            this.beforeOnSample = function (s) { return s; };
+            this.child = null;
+            this.parent = null;
+            this.parentAmplitude = null;
+            this.initSampleRate();
+        }
+        AuNode.prototype.initSampleRate = function () { this.sampleRate = AuEngine_1.AuEngine._.sampleRate; };
+        AuNode.prototype.onSample = function (s) {
+            return s;
+        };
+        AuNode.prototype.onSampleParented = function (s) {
+            if (this.parent)
+                s = this.parent.onSampleParented(s);
+            s = this.onSample(this.beforeOnSample(s));
+            if (this.parentAmplitude)
+                s = s * Calc_2.Calc.remix(-1, 1, this.parentAmplitude.onSampleParented(0), .0, 1);
+            return s;
+        };
+        AuNode.prototype.outTo = function (child) {
+            this.child = child;
+            child.parent = this;
+            return child;
+        };
+        AuNode.prototype.fmTo = function (child) {
+            this.child = child;
+            child.parentFm = this;
+            return child;
+        };
+        AuNode.prototype.amplitudeTo = function (child) {
+            this.child = child;
+            child.parentAmplitude = this;
+            return child;
+        };
+        return AuNode;
+    }());
+    exports.AuNode = AuNode;
+});
+define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require, exports, Calc_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuSmoother = (function () {
@@ -112,7 +233,7 @@ define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require,
         });
         Object.defineProperty(AuSmoother.prototype, "nextSmoothed", {
             get: function () {
-                return this.currVal = Calc_1.Calc.mix(this.currVal, this.inputFn(), this.strength);
+                return this.currVal = Calc_3.Calc.mix(this.currVal, this.inputFn(), this.strength);
             },
             enumerable: true,
             configurable: true
@@ -126,7 +247,7 @@ define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require,
     }());
     exports.AuSmoother = AuSmoother;
 });
-define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSmoother"], function (require, exports, Calc_2, AuEngine_2, AuSmoother_1) {
+define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSmoother"], function (require, exports, Calc_4, AuEngine_2, AuSmoother_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuMidi = (function () {
@@ -140,9 +261,9 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSm
                     var l = msb << 7 | lsb;
                     var low = 21, mid = 8192, hi = 16266;
                     if (l < mid)
-                        return Math.max(0, Calc_2.Calc.remix(low, mid, l, 0, .5));
+                        return Math.max(0, Calc_4.Calc.remix(low, mid, l, 0, .5));
                     else
-                        return Math.min(Calc_2.Calc.remix(mid, hi, l, .5, 1), 1);
+                        return Math.min(Calc_4.Calc.remix(mid, hi, l, .5, 1), 1);
                 };
                 var velHQ = getHqNumber(rawMsg[2], rawMsg[1]);
                 var velRaw = rawMsg[2];
@@ -162,7 +283,7 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSm
                             delete _this.keys[note];
                         break;
                     case 14:
-                        _this.pitch = Calc_2.Calc.mix(-1, 1, velHQ);
+                        _this.pitch = Calc_4.Calc.mix(-1, 1, velHQ);
                         _this.pitchAllNotes();
                         break;
                     case 11:
@@ -234,7 +355,7 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSm
             var p = this.pitch, n2f = this.noteToFreq;
             if (Math.abs(p) < 1 / 126)
                 return n2f(note);
-            return n2f(Calc_2.Calc.mix(note, note + 2, p));
+            return n2f(Calc_4.Calc.mix(note, note + 2, p));
         };
         AuMidi.prototype.pitchAllNotes = function () {
             for (var k in this.keys) {
@@ -328,7 +449,7 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSm
     }());
     exports.AuMidi = AuMidi;
 });
-define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMidi"], function (require, exports, Stor_1, AuNode_1, AuMidi_1) {
+define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMidi"], function (require, exports, Stor_1, AuNode_2, AuMidi_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuEngine = (function (_super) {
@@ -350,7 +471,6 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
             _this.skipProcessing = Stor_1.Stor.has(_this.nameSkip) ? Stor_1.Stor.get(_this.nameSkip) : false;
             _this.veryFirst = true;
             _this.channels = 1;
-            _this.volume = 1;
             _this.getFirstNode = function (fin) {
                 if (typeof fin == 'undefined')
                     fin = _this;
@@ -367,35 +487,18 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
             _this.switchSkip({ keyCode: 0 });
             return _this;
         }
-        AuEngine.prototype.process = function (buf) {
-            this.erease(buf);
-            if (this.skipProcessing)
+        AuEngine.prototype.process = function (buffer) {
+            if (this.skipProcessing) {
+                this.erease(buffer);
                 return;
-            var fin = this;
-            var node = this.getFirstNode(fin);
-            while (node != fin && node.child != null) {
-                node.process(buf);
-                node = node.child;
             }
-            this.setVolume(buf, this.volume);
-            this.lastBuffer = buf;
-            this.totalSamplesProcssed += buf.length;
-        };
-        AuEngine.prototype.toStr = function () { return "AuEngine"; };
-        AuEngine.prototype.getDebugList = function () {
-            var r = [];
-            var fin = this;
-            var node = this.getFirstNode(fin);
-            while (node != fin && node.child != null) {
-                r.push(node.toStr());
-                node = node.child;
-            }
-            return r.join(' => \n');
-        };
-        AuEngine.prototype.setVolume = function (buf, vol) {
-            for (var i = 0; i < buf.length; ++i)
-                for (var channel = 0; channel < buf.numberOfChannels; ++channel)
-                    buf.getChannelData(channel)[i] *= vol;
+            AuEngine._.assertChannels(buffer.numberOfChannels);
+            this.sampleRate = buffer.sampleRate;
+            var spl = 0, data = buffer.getChannelData(0);
+            for (var i = 0; i < buffer.length; ++i)
+                data[i] = this.onSampleParented(0);
+            this.lastBuffer = buffer;
+            this.totalSamplesProcssed += buffer.length;
         };
         AuEngine.prototype.erease = function (buf) {
             for (var i = 0; i < buf.length; ++i)
@@ -433,122 +536,10 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
         AuEngine.LEARN_MODE = false;
         AuEngine.BUF_SZ = 1024;
         return AuEngine;
-    }(AuNode_1.AuNode));
+    }(AuNode_2.AuNode));
     exports.AuEngine = AuEngine;
 });
-define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, exports, Calc_3) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var Trohoid = (function () {
-        function Trohoid() {
-            this.auxRadius = .0;
-            this.radiusVal = .3;
-            this.compensate = .9;
-            this.targetExact = 88200;
-            this.iterationsTotal = 0;
-        }
-        Trohoid.prototype.funcRude = function (x) { return this.funcRudeAux(x, 1); };
-        Trohoid.prototype.funcRudeAux = function (x, amountOfAux) {
-            var _this = this;
-            var radiusVal = this.radiusVal, auxRadius = this.auxRadius;
-            var iterationsTotal = this.iterationsTotal, lastI = .0, result = 0., exa = 2.;
-            var radius = Math.min(1, radiusVal + auxRadius * amountOfAux);
-            var Pi2 = Math.PI * 2;
-            iterationsTotal = 0;
-            x -= ~~x;
-            var find = function (start, roughness) {
-                var step = 1 / roughness;
-                var i = start, I = .0, X = 0;
-                while (i < 1) {
-                    I = i * Pi2;
-                    X = x * Pi2;
-                    if (X < I + Math.sin(I) * radius)
-                        break;
-                    lastI = i;
-                    i += step;
-                    iterationsTotal++;
-                }
-                return Math.cos(I) * radius / Calc_3.Calc.mix(1, radius * 2, _this.compensate);
-            };
-            while (exa <= this.targetExact) {
-                result = find(lastI, exa);
-                exa *= 5;
-            }
-            return result;
-        };
-        return Trohoid;
-    }());
-    var remix = Calc_3.Calc.remix;
-    var WaveForm = (function () {
-        function WaveForm() {
-        }
-        WaveForm.sine = function (phase) { return Math.sin(phase * Math.PI * 2); };
-        WaveForm.square = function (phase) { return phase < .5 ? 1 : -1; };
-        WaveForm.triangle = function (phase) {
-            return phase < .25 ? remix(0, .25, phase, 0, 1) :
-                phase < .75 ? remix(.25, .75, phase, 1, -1) :
-                    remix(.75, 1, phase, -1, 0);
-        };
-        WaveForm.saw = function (phase) { return -phase; };
-        WaveForm.triSawFolded = function (phase, fold) {
-            var top = (1 - fold) * .25;
-            var bottom = 1 - top;
-            return phase < top ? remix(0, top, phase, 0, 1) :
-                phase < bottom ? remix(top, bottom, phase, 1, -1) :
-                    remix(bottom, 1, phase, -1, 0);
-        };
-        WaveForm.pow = function (fn, phase, strength) {
-            var v = Calc_3.Calc.unmix(-1, 1, fn(phase));
-            v = Math.pow(v, strength);
-            return Calc_3.Calc.mix(-1, 1, v);
-        };
-        WaveForm.simplePhaseModulation = function (phase, secondModulationLevel, secondPhaseChanger) {
-            if (secondPhaseChanger === void 0) { secondPhaseChanger = 0; }
-            var s = WaveForm.sine(phase + WaveForm.sine(phase + secondPhaseChanger) * secondModulationLevel);
-            return s;
-        };
-        WaveForm.trohoid = function (phase, radius) {
-            var tro = WaveForm.tro;
-            tro.radiusVal = radius;
-            return tro.funcRude(phase);
-        };
-        WaveForm.tro = new Trohoid();
-        return WaveForm;
-    }());
-    exports.WaveForm = WaveForm;
-});
-define("au/examples/Oscillator", ["require", "exports", "au/AuNode", "au/WaveForm"], function (require, exports, AuNode_2, WaveForm_1) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var Oscillator = (function (_super) {
-        __extends(Oscillator, _super);
-        function Oscillator(frequency, waveGenerator) {
-            if (waveGenerator === void 0) { waveGenerator = null; }
-            var _this = _super.call(this) || this;
-            _this.frequency = frequency;
-            _this.waveGenerator = waveGenerator;
-            _this.position = 0.;
-            _this.on = true;
-            if (_this.waveGenerator == null)
-                _this.waveGenerator = function (pos) { return WaveForm_1.WaveForm.sine(pos); };
-            return _this;
-        }
-        Oscillator.prototype.incPosition = function (step) {
-            this.position += step;
-            if (this.position > 1)
-                this.position -= 1;
-        };
-        Oscillator.prototype.onSample = function (s) {
-            var step = this.frequency / this.sampleRate;
-            this.incPosition(step);
-            return s + (this.on ? this.waveGenerator(this.position) : 0);
-        };
-        Oscillator.prototype.toStr = function () { return "Osc(" + this.frequency + ")"; };
-        return Oscillator;
-    }(AuNode_2.AuNode));
-    exports.Oscillator = Oscillator;
-});
-define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "au/AuMidi", "au/WaveForm", "Main"], function (require, exports, Oscillator_1, AuMidi_2, WaveForm_2, Main_1) {
+define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "au/AuMidi", "Main"], function (require, exports, Oscillator_1, AuMidi_2, Main_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NoteOscillator = (function (_super) {
@@ -561,10 +552,6 @@ define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscilla
             _this.cutoff = _this.midi.cutoff;
             _this.attack = _this.midi.attack;
             _this.modulation = _this.midi.modulation;
-            _this.waveGenerator = function (pos) {
-                var n = _this.midi.keyIdx(0);
-                return WaveForm_2.WaveForm.triSawFolded(pos, 1 - _this.modulation.nextSmoothed);
-            };
             return _this;
         }
         NoteOscillator.prototype.onSample = function (s) {
@@ -573,17 +560,16 @@ define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscilla
             this.frequency = (this.on ? (n.freqPitched) : 0) * this.multiplier;
             return _super.prototype.onSample.call(this, s);
         };
-        NoteOscillator.prototype.toStr = function () { return "NoteOsc(" + this.frequency + ")"; };
         return NoteOscillator;
     }(Oscillator_1.Oscillator));
     exports.NoteOscillator = NoteOscillator;
 });
-define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"], function (require, exports, Calc_4, AuEngine_3) {
+define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"], function (require, exports, Calc_5, AuEngine_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Graphics = PIXI.Graphics;
-    var rmx = Calc_4.Calc.remix;
-    var mx = Calc_4.Calc.mix;
+    var rmx = Calc_5.Calc.remix;
+    var mx = Calc_5.Calc.mix;
     var DispGraph = (function (_super) {
         __extends(DispGraph, _super);
         function DispGraph(size) {
@@ -659,14 +645,14 @@ define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"],
                 startSampleIdx = this.findTheLoudestFirstSample(channel);
                 this.lineStyle(2, 0x33ccff, 1);
                 for (var i = 0; i < sz.w; i += this.resolution) {
-                    var I = Calc_4.Calc.unmix(0, sz.w, i);
+                    var I = Calc_5.Calc.unmix(0, sz.w, i);
                     var sampleIdx = Math.floor(mx(0, this.samplesToDraw, I));
                     var dat = buffer.getChannelData(channel);
                     var idx = startSampleIdx + sampleIdx;
                     if (idx >= buffer.length)
                         continue;
                     var spl = idx < buffer.length ? dat[idx] : -1;
-                    var splCurrent = Calc_4.Calc.unmix(-1, 1, spl);
+                    var splCurrent = Calc_5.Calc.unmix(-1, 1, spl);
                     var y = rmx(1, -1, spl, sz.y, sz.y + sz.h);
                     if (i == 0)
                         this.moveTo(i, y);
@@ -720,32 +706,7 @@ define("display/MainScreen", ["require", "exports", "display/DispGraph", "au/AuE
     }());
     exports.MainScreen = MainScreen;
 });
-define("TheCoolOscillator", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_3) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var TheCoolOscillator = (function (_super) {
-        __extends(TheCoolOscillator, _super);
-        function TheCoolOscillator() {
-            var _this = _super.call(this) || this;
-            _this.phase = 0;
-            _this.frequency = 500;
-            return _this;
-        }
-        TheCoolOscillator.prototype.process = function (buffer) {
-            for (var sample = 0; sample < buffer.length; ++sample) {
-                this.phase += this.frequency / buffer.sampleRate;
-                this.frequency += .005;
-                if (this.phase > 1)
-                    this.phase -= 1;
-                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
-                    buffer.getChannelData(channel)[sample] = Math.sin(this.phase * Math.PI * 2);
-            }
-        };
-        return TheCoolOscillator;
-    }(AuNode_3.AuNode));
-    exports.TheCoolOscillator = TheCoolOscillator;
-});
-define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_4) {
+define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuBiquadFilter = (function (_super) {
@@ -1030,10 +991,10 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
             }
         };
         return AuBiquadFilter;
-    }(AuNode_4.AuNode));
+    }(AuNode_3.AuNode));
     exports.AuBiquadFilter = AuBiquadFilter;
 });
-define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscillator", "au/fx/AuBiquadFilter", "tools/Calc"], function (require, exports, NoteOscillator_1, AuBiquadFilter_1, Calc_5) {
+define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscillator", "au/fx/AuBiquadFilter", "tools/Calc"], function (require, exports, NoteOscillator_1, AuBiquadFilter_1, Calc_6) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var SubtrSynth = (function (_super) {
@@ -1041,8 +1002,8 @@ define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscilla
         function SubtrSynth(multiplier) {
             var _this = _super.call(this, multiplier) || this;
             _this.midi2lowpass = function () {
-                _this.lowpass.frequency = Calc_5.Calc.mix(300, 8000, _this.cutoff.nextSmoothed);
-                _this.lowpass.Q = Calc_5.Calc.mix(1, 22, _this.resonance.nextSmoothed);
+                _this.lowpass.frequency = Calc_6.Calc.mix(300, 8000, _this.cutoff.nextSmoothed);
+                _this.lowpass.Q = Calc_6.Calc.mix(1, 22, _this.resonance.nextSmoothed);
             };
             _this.resonance = _this.midi.resonance;
             _this.lowpass = new AuBiquadFilter_1.AuBiquadFilter('lowpass', 1000, _this.sampleRate, 3, 6);
@@ -1062,7 +1023,7 @@ define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscilla
     }(NoteOscillator_1.NoteOscillator));
     exports.SubtrSynth = SubtrSynth;
 });
-define("au/fx/AuVolume", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_5) {
+define("au/fx/AuVolume", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_4) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuVolume = (function (_super) {
@@ -1076,10 +1037,10 @@ define("au/fx/AuVolume", ["require", "exports", "au/AuNode"], function (require,
             return s * this.volume;
         };
         return AuVolume;
-    }(AuNode_5.AuNode));
+    }(AuNode_4.AuNode));
     exports.AuVolume = AuVolume;
 });
-define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen", "au/examples/SubtrSynth", "au/fx/AuVolume"], function (require, exports, AuEngine_5, NoteOscillator_2, MainScreen_1, SubtrSynth_1, AuVolume_1) {
+define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen", "au/examples/SubtrSynth", "au/fx/AuVolume", "au/AuMidi", "au/examples/Oscillator"], function (require, exports, AuEngine_5, NoteOscillator_2, MainScreen_1, SubtrSynth_1, AuVolume_1, AuMidi_3, Oscillator_2) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Main = (function () {
@@ -1091,22 +1052,64 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator
                 _this.screen = new MainScreen_1.MainScreen();
                 _this.connectMyDevices();
                 setTimeout(function () { return $('#wait').remove(); }, 300);
-                console.log(_this.engine.getDebugList());
             };
             Main.me = this;
             $(document).ready(this.run);
         }
         Main.prototype.connectMyDevices = function () {
+            this.simpleFm();
+        };
+        Main.prototype.subtrSynth = function () {
             new SubtrSynth_1.SubtrSynth(3)
                 .outTo(new AuVolume_1.AuVolume(.7))
                 .outTo(new NoteOscillator_2.NoteOscillator(1))
                 .outTo(new AuVolume_1.AuVolume(.3))
                 .outTo(this.engine);
         };
+        Main.prototype.simpleFm = function () {
+            var fmStrength;
+            var osc = new Oscillator_2.Oscillator(3);
+            osc.outTo(fmStrength = new AuVolume_1.AuVolume(0))
+                .fmTo(new NoteOscillator_2.NoteOscillator(1))
+                .outTo(new AuVolume_1.AuVolume(.7))
+                .outTo(this.engine);
+            var res = AuMidi_3.AuMidi._.resonance;
+            var freq = AuMidi_3.AuMidi._.cutoff;
+            fmStrength.beforeOnSample = function (s) {
+                fmStrength.volume = res.nextSmoothed;
+                osc.frequency = freq.nextSmoothed * 200;
+                return s;
+            };
+        };
         return Main;
     }());
     exports.Main = Main;
     new Main();
+});
+define("TheCoolOscillator", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_5) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var TheCoolOscillator = (function (_super) {
+        __extends(TheCoolOscillator, _super);
+        function TheCoolOscillator() {
+            var _this = _super.call(this) || this;
+            _this.phase = 0;
+            _this.frequency = 500;
+            return _this;
+        }
+        TheCoolOscillator.prototype.process = function (buffer) {
+            for (var sample = 0; sample < buffer.length; ++sample) {
+                this.phase += this.frequency / buffer.sampleRate;
+                this.frequency += .005;
+                if (this.phase > 1)
+                    this.phase -= 1;
+                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
+                    buffer.getChannelData(channel)[sample] = Math.sin(this.phase * Math.PI * 2);
+            }
+        };
+        return TheCoolOscillator;
+    }(AuNode_5.AuNode));
+    exports.TheCoolOscillator = TheCoolOscillator;
 });
 define("au/AuConvolution", ["require", "exports", "au/AuEngine"], function (require, exports, AuEngine_6) {
     "use strict";

@@ -1,6 +1,5 @@
 import {AuNode} from "../AuNode";
 import {WaveForm} from "../WaveForm";
-import {AuSample} from "../AuSample";
 
 type FnWaveGenerator =(position:number)=>number;
 
@@ -17,11 +16,14 @@ export class Oscillator extends AuNode{
     if(this.position>1)this.position-=1;
   }
   on:boolean=true;
-  onSample(s: AuSample){
-    const step = this.frequency/this.sampleRate;
+  onSample(s: number){
+    const freqMul = 1+(this.parentFm?(this.parentFm.onSampleParented(0)*10):0);
+    const step = (this.frequency*freqMul)/this.sampleRate;
     this.incPosition(step);
     return s + (this.on? this.waveGenerator(this.position):0);
   }
 
-  toStr(){   return `Osc(${this.frequency})`;  }
+
+  parentFm:AuNode=null;
+
 }

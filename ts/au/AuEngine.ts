@@ -28,8 +28,7 @@ export class AuEngine extends AuNode{
   private skipProcessing=Stor.has(this.nameSkip)?Stor.get(this.nameSkip):false;
   private veryFirst = true;
   readonly audioCtx:AudioContext;
-  private readonly channels = 1;/// should not be changed, otherwise it will not work with AuSample Class
-  volume=1;//.3;
+  private readonly channels = 1;/// should not be changed
   getFirstNode=(fin?:AuNode)=>{
     if(typeof fin=='undefined')fin=this;
     let n=fin;
@@ -38,35 +37,18 @@ export class AuEngine extends AuNode{
   };
   totalSamplesProcssed=0;
   lastBuffer:AudioBuffer;
-  process(buf:AudioBuffer) {
-    this.erease(buf);
-    if(this.skipProcessing)
+  process(buffer:AudioBuffer) {
+    if(this.skipProcessing){
+      this.erease(buffer);
       return;
-    const fin:AuNode=this;
-    let node=this.getFirstNode(fin);
-    while (node!=fin && node.child!=null){
-      node.process(buf);
-      node=node.child;
     }
-    this.setVolume(buf, this.volume);
-    this.lastBuffer=buf;
-    this.totalSamplesProcssed+=buf.length;
-  }
-  toStr(){   return "AuEngine"; }
-  getDebugList(){
-    const r:string[]=[];
-    const fin:AuNode=this;
-    let node=this.getFirstNode(fin);
-    while (node!=fin && node.child!=null){
-      r.push(node.toStr());
-      node=node.child;
-    }
-    return r.join(' => \n');
-  }
-  private setVolume(buf:AudioBuffer, vol:number){
-    for(let i=0;i<buf.length;++i)
-      for (let channel=0; channel<buf.numberOfChannels;++channel)
-        buf.getChannelData(channel)[i]*=vol;
+    AuEngine._.assertChannels(buffer.numberOfChannels);
+    this.sampleRate=buffer.sampleRate;
+    const spl=0, data=buffer.getChannelData(0);
+    for(let i=0;i<buffer.length;++i)
+      data[i] = this.onSampleParented(/*data[i]*/0);
+    this.lastBuffer=buffer;
+    this.totalSamplesProcssed+=buffer.length;
   }
   private erease(buf:AudioBuffer){
     for(let i=0;i<buf.length;++i)

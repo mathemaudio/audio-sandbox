@@ -1,10 +1,7 @@
 import {NoteOscillator} from "./NoteOscillator";
 import {AuBiquadFilter} from "../fx/AuBiquadFilter";
-import {AuMidi} from "../AuMidi";
 import {AuSmoother} from "../AuSmoother";
 import {AuNode} from "../AuNode";
-import {AuSample} from "../AuSample";
-import {AuEngine} from "../AuEngine";
 import {Calc} from "../../tools/Calc";
 
 export class SubtrSynth extends NoteOscillator{
@@ -23,7 +20,7 @@ export class SubtrSynth extends NoteOscillator{
     // this.lowpass.peakGain=6;
     // this.lowpass.apply();
   };
-  onSample(s: AuSample){
+  onSample(s: number){
     this.midi2lowpass();
     return super.onSample(s);
   }

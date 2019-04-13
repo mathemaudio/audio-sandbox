@@ -1,12 +1,11 @@
 import {AuEngine} from "./au/AuEngine";
-import {Oscillator} from "./au/examples/Oscillator";
 import {NoteOscillator} from "./au/examples/NoteOscillator";
 import {MainScreen} from "./display/MainScreen";
-import {TheCoolOscillator} from "./TheCoolOscillator";
-import {AuBiquadFilter, AuBiquadType} from "./au/fx/AuBiquadFilter";
-import {AuMidi} from "./au/AuMidi";
 import {SubtrSynth} from "./au/examples/SubtrSynth";
 import {AuVolume} from "./au/fx/AuVolume";
+import {AuMidi} from "./au/AuMidi";
+import {Oscillator} from "./au/examples/Oscillator";
+import {Calc} from "./tools/Calc";
 
 /**
  * todo:
@@ -34,16 +33,37 @@ export class Main{
 
 
     setTimeout(()=>$('#wait').remove(), 300);
-    console.log(this.engine.getDebugList());
   };
 
   private connectMyDevices(){
+    this.simpleFm();
+  }
+  private subtrSynth(){
     new SubtrSynth(3)
     .outTo(new AuVolume(.7))
     .outTo(new NoteOscillator(1))
     .outTo(new AuVolume(.3))
-    .outTo(this.engine)
-    ;
+    .outTo(this.engine) ;
+  }
+  private simpleFm(){
+    let fmStrength:AuVolume;
+    // let osc=new NoteOscillator(3);
+    let osc=new Oscillator(3);
+
+
+    osc.outTo(fmStrength=new AuVolume(0))
+    .fmTo(new NoteOscillator(1))
+    .outTo(new AuVolume(.7))
+    .outTo(this.engine);
+
+    const res=AuMidi._.resonance;
+    const freq = AuMidi._.cutoff;
+    fmStrength.beforeOnSample=s=>{
+      fmStrength.volume = res.nextSmoothed;
+      osc.frequency=freq.nextSmoothed*200;
+      // osc.multiplier = Calc.mix(.5, 4, freq.nextSmoothed);
+      return s;
+    }
   }
 }
 
