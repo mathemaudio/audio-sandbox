@@ -36,6 +36,7 @@ export class AuEngine extends AuNode{
     while (n.parent!=null)n=n.parent;
     return n;
   };
+  totalSamplesProcssed=0;
   lastBuffer:AudioBuffer;
   process(buf:AudioBuffer) {
     this.erease(buf);
@@ -49,6 +50,7 @@ export class AuEngine extends AuNode{
     }
     this.setVolume(buf, this.volume);
     this.lastBuffer=buf;
+    this.totalSamplesProcssed+=buf.length;
   }
   toStr(){   return "AuEngine"; }
   getDebugList(){
@@ -82,12 +84,14 @@ export class AuEngine extends AuNode{
   private attachNodes(){
     this.assertChannels(this.channels);
 
-    const node = this.mainScriptNode = this.audioCtx.createScriptProcessor(AuEngine.BUF_SZ, this.channels, this.channels);
+    const node = this.mainScriptNode = this.audioCtx.createScriptProcessor(
+      AuEngine.BUF_SZ, this.channels, this.channels
+    );
     node.onaudioprocess = (e:AudioProcessingEvent)=>this.process(e.outputBuffer);
     node.connect(this.audioCtx.destination);
     this.lastAttachedNode=node;
   }
-  // get sampleRateGlobal(){ return this.audioCtx.sampleRate; }
+  get sampleRateGlobal(){ return this.audioCtx.sampleRate; }
   private mainScriptNode:ScriptProcessorNode;
   private lastAttachedNode:AudioNode;
   insertJSAudioNodeToEnd(node:AudioNode){

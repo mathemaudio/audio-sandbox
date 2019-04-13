@@ -1,9 +1,15 @@
 import {AuNode} from "../AuNode";
 import {WaveForm} from "../WaveForm";
+import {AuSample} from "../AuSample";
+
+type FnWaveGenerator =(position:number)=>number;
+
 
 export class Oscillator extends AuNode{
-  constructor(public frequency:number){
+  constructor(public frequency:number, public waveGenerator:FnWaveGenerator=null){
     super();
+    if(this.waveGenerator==null)
+      this.waveGenerator=(pos:number)=>WaveForm.triangle(pos);
   }
   protected position=0.;
   protected incPosition(step:number){
@@ -11,15 +17,11 @@ export class Oscillator extends AuNode{
     if(this.position>1)this.position-=1;
   }
   on:boolean=true;
-  process(buffer: AudioBuffer){
-    for(let i=0;i<buffer.length;++i){
-      const step = this.frequency/buffer.sampleRate;
-      this.incPosition(step);
-      if(this.position>1)this.position-=1;
-      const val=this.on? WaveForm.sine(this.position):0;
-      for (let channel=0; channel<buffer.numberOfChannels;++channel)
-        buffer.getChannelData(channel)[i]+= val;
-    }
+  onSample(s: AuSample): void{
+    const step = this.frequency/s.rate;
+    this.incPosition(step);
+    s.c = this.on? this.waveGenerator(this.position):0;
   }
+
   toStr(){   return `Osc(${this.frequency})`;  }
 }

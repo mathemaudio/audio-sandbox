@@ -1,8 +1,8 @@
 import {Calc} from "../tools/Calc";
 import {AuEngine} from "./AuEngine";
+import {AuSmoother} from "./AuSmoother";
 
 
-const L = (s: string) => console.log(s);
 type Num = number;
 
 type Velocity = number;
@@ -63,7 +63,7 @@ export class AuMidi {
   private onMessage = (e: any) => {
     const rawMsg = this._lastEvent = <Num[]>e.data,
       cmd = rawMsg[0] >> 4,
-      // channel = rawMsg[0] & 0xf,
+      channel = rawMsg[0] & 0xf,
       note = rawMsg[1];
     if(this.onMidiEvent)this.onMidiEvent(rawMsg);
     const getHqNumber = (msb: number, lsb: number) => {
@@ -73,15 +73,16 @@ export class AuMidi {
       else return Math.min(Calc.remix(mid, hi, l, .5, 1), 1);
     };
     const velHQ = getHqNumber(rawMsg[2], rawMsg[1]);
+    const velRaw=rawMsg[2];
+    const velLofi01=velRaw/127;
     switch (cmd) {
       case 8:
       case 9:
-        const velRaw=rawMsg[2];
         const noteOn = cmd == 9 && velRaw!=0/*a special case: velocity=0 is actually "note off" cmd */;
         if (noteOn)
           this.keys[note] = {
             note:note,
-            vel:velRaw/127,
+            vel:velLofi01,
             freqBase:this.noteToFreq(note),
             freqPitched:this.findPitchedFreq(note),
           };
@@ -93,31 +94,34 @@ export class AuMidi {
         this.pitchAllNotes();
         break;
       case 11:
-        if (note == 1)
-          this.modulationRaw = velHQ;
-        else if (note == 74)
-          this.brightness = Calc.remix(.5, 1, velHQ, 0, 1);
+        switch (note) {
+          case 1:this.modulationRaw = velHQ;break;
+          case 73:this.attackRaw = velLofi01;break;
+          case 75:this.decayRaw = velLofi01;break;
+          case 72:this.releaseRaw = velLofi01;break;
+          case 74:this.cutoffRaw = velLofi01;break;
+          case 71:this.resonanceRaw = velLofi01;break;
+          default: break;
+        }
         break;
       default:
-        L('not parsed');
+        console.log('not parsed');
         break;
     }
     // const R=(n:number) => Math.round(n*1000)/1000;
     const R = (n: number) => n;
-    console.log(JSON.stringify(this.keys) + `\npitch: ${R(this.pitch)}, mod: ${R(this.modulation)}, br: ${R(this.brightness)}`);
-    // console.log(`cmd=${cmd}, ch=${channel}, note=${note}, vel=${vel}`);
+    // console.log(JSON.stringify(this.keys) + `\npitch: ${R(this.pitch)}, mod: ${R(this.modulation)}, br: ${R(this.brightness)}`);
+    console.log(`cmd=${cmd}, ch=${channel}, note=${note}, vel=${velRaw}`);
   };
   pitch = 0;
   onMidiEvent:(data:number[])=>void;
 
-  get modulation(){
-    this.modulationGlide = Calc.mix(this.modulationRaw, this.modulationGlide, .1);
-    return this.modulationGlide;
-  }
-
-  private modulationGlide = 0;
-  modulationRaw = 0;
-  brightness = 0;
+  get modulation(){ return new AuSmoother(()=>this.modulationRaw); }  private modulationRaw = 0;
+  get attack(){ return new AuSmoother(()=>this.attackRaw); }  private attackRaw = 0;
+  get decay(){ return new AuSmoother(()=>this.decayRaw); }  private decayRaw = 0;
+  get release(){ return new AuSmoother(()=>this.releaseRaw); }  private releaseRaw = 0;
+  get cutoff(){ return new AuSmoother(()=>this.cutoffRaw); }  private cutoffRaw = 0;
+  get resonance(){ return new AuSmoother(()=>this.resonanceRaw); }  private resonanceRaw = 0;
 
   get on(){
     for (let i in this.keys) return true;

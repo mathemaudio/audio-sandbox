@@ -45,7 +45,7 @@ define("au/AuSample", ["require", "exports"], function (require, exports) {
             this.r = r;
         }
         Object.defineProperty(AuSample.prototype, "c", {
-            get: function () { return (this.l + this.r) / 2; },
+            get: function () { return this.l; },
             set: function (val) { this.l = this.r = val; },
             enumerable: true,
             configurable: true
@@ -62,19 +62,20 @@ define("au/AuNode", ["require", "exports", "au/AuSample", "au/AuEngine"], functi
             this.child = null;
             this.parent = null;
         }
-        AuNode.prototype.oneSample = function (s) {
+        AuNode.prototype.onSample = function (s) {
             s.l *= .5;
             s.r *= .5;
         };
         AuNode.prototype.process = function (buffer) {
             AuEngine_1.AuEngine._.assertChannels(buffer.numberOfChannels);
-            var spl = new AuSample_1.AuSample(), channel = buffer.getChannelData;
+            var spl = new AuSample_1.AuSample(), l = buffer.getChannelData(0), r = buffer.getChannelData(1);
+            spl.rate = buffer.sampleRate;
             for (var i = 0; i < buffer.length; ++i) {
-                spl.l = channel(0)[i];
-                spl.r = channel(1)[i];
-                this.oneSample(spl);
-                channel(0)[i] = spl.l;
-                channel(1)[i] = spl.r;
+                spl.l = l[i];
+                spl.r = r[i];
+                this.onSample(spl);
+                l[i] = spl.l;
+                r[i] = spl.r;
             }
         };
         AuNode.prototype.outTo = function (child) {
@@ -111,35 +112,61 @@ define("tools/Calc", ["require", "exports"], function (require, exports) {
     }());
     exports.Calc = Calc;
 });
-define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine"], function (require, exports, Calc_1, AuEngine_2) {
+define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require, exports, Calc_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var L = function (s) { return console.log(s); };
+    var AuSmoother = (function () {
+        function AuSmoother(inputFn, strength) {
+            if (strength === void 0) { strength = .0006; }
+            this.inputFn = inputFn;
+            this.strength = strength;
+            this.currVal = this.inputFn();
+        }
+        Object.defineProperty(AuSmoother.prototype, "nextSmoothed", {
+            get: function () {
+                return this.currVal = Calc_1.Calc.mix(this.currVal, this.inputFn(), this.strength);
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuSmoother.prototype, "nextSmoothedRound", {
+            get: function () { return Math.round(this.nextSmoothed * 1000) / 1000; },
+            enumerable: true,
+            configurable: true
+        });
+        return AuSmoother;
+    }());
+    exports.AuSmoother = AuSmoother;
+});
+define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSmoother"], function (require, exports, Calc_2, AuEngine_2, AuSmoother_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
     var AuMidi = (function () {
         function AuMidi() {
             var _this = this;
             this.onMessage = function (e) {
-                var rawMsg = _this._lastEvent = e.data, cmd = rawMsg[0] >> 4, note = rawMsg[1];
+                var rawMsg = _this._lastEvent = e.data, cmd = rawMsg[0] >> 4, channel = rawMsg[0] & 0xf, note = rawMsg[1];
                 if (_this.onMidiEvent)
                     _this.onMidiEvent(rawMsg);
                 var getHqNumber = function (msb, lsb) {
                     var l = msb << 7 | lsb;
                     var low = 21, mid = 8192, hi = 16266;
                     if (l < mid)
-                        return Math.max(0, Calc_1.Calc.remix(low, mid, l, 0, .5));
+                        return Math.max(0, Calc_2.Calc.remix(low, mid, l, 0, .5));
                     else
-                        return Math.min(Calc_1.Calc.remix(mid, hi, l, .5, 1), 1);
+                        return Math.min(Calc_2.Calc.remix(mid, hi, l, .5, 1), 1);
                 };
                 var velHQ = getHqNumber(rawMsg[2], rawMsg[1]);
+                var velRaw = rawMsg[2];
+                var velLofi01 = velRaw / 127;
                 switch (cmd) {
                     case 8:
                     case 9:
-                        var velRaw = rawMsg[2];
                         var noteOn = cmd == 9 && velRaw != 0;
                         if (noteOn)
                             _this.keys[note] = {
                                 note: note,
-                                vel: velRaw / 127,
+                                vel: velLofi01,
                                 freqBase: _this.noteToFreq(note),
                                 freqPitched: _this.findPitchedFreq(note),
                             };
@@ -147,26 +174,46 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine"], functio
                             delete _this.keys[note];
                         break;
                     case 14:
-                        _this.pitch = Calc_1.Calc.mix(-1, 1, velHQ);
+                        _this.pitch = Calc_2.Calc.mix(-1, 1, velHQ);
                         _this.pitchAllNotes();
                         break;
                     case 11:
-                        if (note == 1)
-                            _this.modulationRaw = velHQ;
-                        else if (note == 74)
-                            _this.brightness = Calc_1.Calc.remix(.5, 1, velHQ, 0, 1);
+                        switch (note) {
+                            case 1:
+                                _this.modulationRaw = velHQ;
+                                break;
+                            case 73:
+                                _this.attackRaw = velLofi01;
+                                break;
+                            case 75:
+                                _this.decayRaw = velLofi01;
+                                break;
+                            case 72:
+                                _this.releaseRaw = velLofi01;
+                                break;
+                            case 74:
+                                _this.cutoffRaw = velLofi01;
+                                break;
+                            case 71:
+                                _this.resonanceRaw = velLofi01;
+                                break;
+                            default: break;
+                        }
                         break;
                     default:
-                        L('not parsed');
+                        console.log('not parsed');
                         break;
                 }
                 var R = function (n) { return n; };
-                console.log(JSON.stringify(_this.keys) + ("\npitch: " + R(_this.pitch) + ", mod: " + R(_this.modulation) + ", br: " + R(_this.brightness)));
+                console.log("cmd=" + cmd + ", ch=" + channel + ", note=" + note + ", vel=" + velRaw);
             };
             this.pitch = 0;
-            this.modulationGlide = 0;
             this.modulationRaw = 0;
-            this.brightness = 0;
+            this.attackRaw = 0;
+            this.decayRaw = 0;
+            this.releaseRaw = 0;
+            this.cutoffRaw = 0;
+            this.resonanceRaw = 0;
             this.keys = {};
             this.connect();
         }
@@ -199,7 +246,7 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine"], functio
             var p = this.pitch, n2f = this.noteToFreq;
             if (Math.abs(p) < 1 / 126)
                 return n2f(note);
-            return n2f(Calc_1.Calc.mix(note, note + 2, p));
+            return n2f(Calc_2.Calc.mix(note, note + 2, p));
         };
         AuMidi.prototype.pitchAllNotes = function () {
             for (var k in this.keys) {
@@ -214,8 +261,48 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine"], functio
         });
         Object.defineProperty(AuMidi.prototype, "modulation", {
             get: function () {
-                this.modulationGlide = Calc_1.Calc.mix(this.modulationRaw, this.modulationGlide, .1);
-                return this.modulationGlide;
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.modulationRaw; });
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuMidi.prototype, "attack", {
+            get: function () {
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.attackRaw; });
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuMidi.prototype, "decay", {
+            get: function () {
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.decayRaw; });
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuMidi.prototype, "release", {
+            get: function () {
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.releaseRaw; });
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuMidi.prototype, "cutoff", {
+            get: function () {
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.cutoffRaw; });
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuMidi.prototype, "resonance", {
+            get: function () {
+                var _this = this;
+                return new AuSmoother_1.AuSmoother(function () { return _this.resonanceRaw; });
             },
             enumerable: true,
             configurable: true
@@ -284,6 +371,7 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
                     n = n.parent;
                 return n;
             };
+            _this.totalSamplesProcssed = 0;
             _this.audioCtx = new AudioContext();
             _this.attachNodes();
             _this.midi = AuMidi_1.AuMidi._;
@@ -303,6 +391,7 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
             }
             this.setVolume(buf, this.volume);
             this.lastBuffer = buf;
+            this.totalSamplesProcssed += buf.length;
         };
         AuEngine.prototype.toStr = function () { return "AuEngine"; };
         AuEngine.prototype.getDebugList = function () {
@@ -340,6 +429,11 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
             node.connect(this.audioCtx.destination);
             this.lastAttachedNode = node;
         };
+        Object.defineProperty(AuEngine.prototype, "sampleRateGlobal", {
+            get: function () { return this.audioCtx.sampleRate; },
+            enumerable: true,
+            configurable: true
+        });
         AuEngine.prototype.insertJSAudioNodeToEnd = function (node) {
             this.lastAttachedNode.connect(node);
             node.connect(this.audioCtx.destination);
@@ -356,7 +450,7 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
     }(AuNode_1.AuNode));
     exports.AuEngine = AuEngine;
 });
-define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, exports, Calc_2) {
+define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, exports, Calc_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Trohoid = (function () {
@@ -388,7 +482,7 @@ define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, e
                     i += step;
                     iterationsTotal++;
                 }
-                return Math.cos(I) * radius / Calc_2.Calc.mix(1, radius * 2, _this.compensate);
+                return Math.cos(I) * radius / Calc_3.Calc.mix(1, radius * 2, _this.compensate);
             };
             while (exa <= this.targetExact) {
                 result = find(lastI, exa);
@@ -398,7 +492,7 @@ define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, e
         };
         return Trohoid;
     }());
-    var remix = Calc_2.Calc.remix;
+    var remix = Calc_3.Calc.remix;
     var WaveForm = (function () {
         function WaveForm() {
         }
@@ -418,13 +512,13 @@ define("au/WaveForm", ["require", "exports", "tools/Calc"], function (require, e
                     remix(bottom, 1, phase, -1, 0);
         };
         WaveForm.pow = function (fn, phase, strength) {
-            var v = Calc_2.Calc.unmix(-1, 1, fn(phase));
+            var v = Calc_3.Calc.unmix(-1, 1, fn(phase));
             v = Math.pow(v, strength);
-            return v;
-            return Calc_2.Calc.mix(-1, 1, v);
+            return Calc_3.Calc.mix(-1, 1, v);
         };
-        WaveForm.simpleFM = function (phase, secondModulationLevel) {
-            var s = WaveForm.sine(phase + WaveForm.sine(phase) * secondModulationLevel);
+        WaveForm.simplePhaseModulation = function (phase, secondModulationLevel, secondPhaseChanger) {
+            if (secondPhaseChanger === void 0) { secondPhaseChanger = 0; }
+            var s = WaveForm.sine(phase + WaveForm.sine(phase + secondPhaseChanger) * secondModulationLevel);
             return s;
         };
         WaveForm.trohoid = function (phase, radius) {
@@ -442,11 +536,15 @@ define("au/examples/Oscillator", ["require", "exports", "au/AuNode", "au/WaveFor
     Object.defineProperty(exports, "__esModule", { value: true });
     var Oscillator = (function (_super) {
         __extends(Oscillator, _super);
-        function Oscillator(frequency) {
+        function Oscillator(frequency, waveGenerator) {
+            if (waveGenerator === void 0) { waveGenerator = null; }
             var _this = _super.call(this) || this;
             _this.frequency = frequency;
+            _this.waveGenerator = waveGenerator;
             _this.position = 0.;
             _this.on = true;
+            if (_this.waveGenerator == null)
+                _this.waveGenerator = function (pos) { return WaveForm_1.WaveForm.triangle(pos); };
             return _this;
         }
         Oscillator.prototype.incPosition = function (step) {
@@ -454,23 +552,17 @@ define("au/examples/Oscillator", ["require", "exports", "au/AuNode", "au/WaveFor
             if (this.position > 1)
                 this.position -= 1;
         };
-        Oscillator.prototype.process = function (buffer) {
-            for (var i = 0; i < buffer.length; ++i) {
-                var step = this.frequency / buffer.sampleRate;
-                this.incPosition(step);
-                if (this.position > 1)
-                    this.position -= 1;
-                var val = this.on ? WaveForm_1.WaveForm.sine(this.position) : 0;
-                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
-                    buffer.getChannelData(channel)[i] += val;
-            }
+        Oscillator.prototype.onSample = function (s) {
+            var step = this.frequency / s.rate;
+            this.incPosition(step);
+            s.c = this.on ? this.waveGenerator(this.position) : 0;
         };
         Oscillator.prototype.toStr = function () { return "Osc(" + this.frequency + ")"; };
         return Oscillator;
     }(AuNode_2.AuNode));
     exports.Oscillator = Oscillator;
 });
-define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "au/AuMidi", "au/WaveForm", "tools/Calc"], function (require, exports, Oscillator_1, AuMidi_2, WaveForm_2, Calc_3) {
+define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "au/AuMidi", "au/WaveForm", "Main"], function (require, exports, Oscillator_1, AuMidi_2, WaveForm_2, Main_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NoteOscillator = (function (_super) {
@@ -478,23 +570,22 @@ define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscilla
         function NoteOscillator(multiplier) {
             var _this = _super.call(this, 0) || this;
             _this.multiplier = multiplier;
+            Main_1.Main.me.screen.signalOutput.baseFrequencyProvider = function () { return _this.frequency; };
+            _this.midi = AuMidi_2.AuMidi._;
+            _this.cutoff = _this.midi.cutoff;
+            _this.attack = _this.midi.attack;
+            _this.modulation = _this.midi.modulation;
+            _this.waveGenerator = function (pos) {
+                var n = _this.midi.keyIdx(0);
+                return WaveForm_2.WaveForm.triSawFolded(pos, 1 - _this.modulation.nextSmoothed);
+            };
             return _this;
         }
-        NoteOscillator.prototype.process = function (buffer) {
-            var midi = AuMidi_2.AuMidi._;
-            for (var i = 0; i < buffer.length; ++i) {
-                var n = midi.keyIdx(0);
-                var on = this.on = n != null;
-                if (this.on)
-                    this.frequency = (on ? (n.freqPitched) : 0) * this.multiplier;
-                var step = this.frequency / buffer.sampleRate;
-                this.incPosition(step);
-                var val = this.on ?
-                    WaveForm_2.WaveForm.pow(WaveForm_2.WaveForm.sine, this.position, Calc_3.Calc.mix(8, 2048, Math.pow(midi.modulation, 4)))
-                    : 0;
-                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
-                    buffer.getChannelData(channel)[i] += val;
-            }
+        NoteOscillator.prototype.onSample = function (s) {
+            var n = this.midi.keyIdx(0);
+            this.on = n != null;
+            this.frequency = (this.on ? (n.freqPitched) : 0) * this.multiplier;
+            _super.prototype.onSample.call(this, s);
         };
         NoteOscillator.prototype.toStr = function () { return "NoteOsc(" + this.frequency + ")"; };
         return NoteOscillator;
@@ -512,8 +603,7 @@ define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"],
         function DispGraph(size) {
             var _this = _super.call(this) || this;
             _this.size = size;
-            _this.samplesToDraw = Math.floor(AuEngine_3.AuEngine.BUF_SZ);
-            _this.startFromSilenceUp = false;
+            _this.samplesToDraw = Math.floor(AuEngine_3.AuEngine.BUF_SZ / 2);
             _this.wasZero = false;
             _this.fadeTick = 0;
             _this.resolution = 2;
@@ -549,19 +639,16 @@ define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"],
                 return true;
             };
             _this.findTheLoudestFirstSample = function (channel) {
-                var buffer = _this.engine.lastBuffer;
-                var epsilon = .01, izZero = function (v) { return Math.abs(v) < epsilon; };
-                var loudestIdx = 0, loudestMax = 0;
-                var dat = buffer.getChannelData(channel);
-                for (var i = 0; i < buffer.length; ++i) {
-                    var spl = dat[i];
-                    if (spl > loudestMax) {
-                        loudestMax = spl;
-                        loudestIdx = i;
-                    }
-                }
-                return loudestIdx;
+                var freq = _this.baseFrequencyProvider();
+                $('#freqInfo').html((freq == 0 ? '...' : (Math.round(freq * 100) / 100) + ' Hz'));
+                if (freq == 0)
+                    return 0;
+                var buffer = _this.engine.lastBuffer, totalSamples = _this.engine.totalSamplesProcssed;
+                var period = buffer.sampleRate / freq;
+                return Math.round(period - (totalSamples / period - Math.floor(totalSamples / period)) * period);
             };
+            if (!_this.baseFrequencyProvider)
+                _this.baseFrequencyProvider = function () { return 0; };
             return _this;
         }
         Object.defineProperty(DispGraph.prototype, "engine", {
@@ -574,13 +661,16 @@ define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"],
             this.drawRect(0, 0, sz.w, sz.h);
         };
         ;
+        DispGraph.prototype.modulusFloat = function (a, b) {
+            var div = (a / b);
+            return (div - Math.floor(div)) * b;
+        };
         DispGraph.prototype.drawChannel = function (channel) {
             var sz = { w: this.size.w, h: this.size.h, x: 0, y: 0 };
             var buffer = this.engine.lastBuffer;
             if (buffer) {
                 var startSampleIdx = 0;
-                if (this.startFromSilenceUp)
-                    startSampleIdx = this.findTheLoudestFirstSample(channel);
+                startSampleIdx = this.findTheLoudestFirstSample(channel);
                 this.lineStyle(2, 0x33ccff, 1);
                 for (var i = 0; i < sz.w; i += this.resolution) {
                     var I = Calc_4.Calc.unmix(0, sz.w, i);
@@ -669,7 +759,254 @@ define("TheCoolOscillator", ["require", "exports", "au/AuNode"], function (requi
     }(AuNode_3.AuNode));
     exports.TheCoolOscillator = TheCoolOscillator;
 });
-define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen"], function (require, exports, AuEngine_5, NoteOscillator_1, MainScreen_1) {
+define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_4) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var AuBiquadFilter = (function (_super) {
+        __extends(AuBiquadFilter, _super);
+        function AuBiquadFilter(params) {
+            var _this = _super.call(this) || this;
+            _this.initOnSampleAction();
+            _this.coefficients = [];
+            _this.numberOfCascade = 1;
+            _this.resetMemories();
+            _this.params = params;
+            return _this;
+        }
+        Object.defineProperty(AuBiquadFilter.prototype, "params", {
+            get: function () { return this._params; },
+            set: function (p) {
+                var coef = this.calcBiquad(p.type, p.frequency, p.sampleRate, p.Q, p.peakGain);
+                this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2]);
+            },
+            enumerable: true,
+            configurable: true
+        });
+        AuBiquadFilter.prototype.calcBiquad = function (type, frequency, sampleRate, Q, peakGain) {
+            var a0, a1, a2, b1, b2, norm;
+            var ymin, ymax, minVal, maxVal;
+            var V = Math.pow(10, Math.abs(peakGain) / 20);
+            var K = Math.tan(Math.PI * frequency / sampleRate);
+            switch (type) {
+                case "one-pole lp":
+                    b1 = Math.exp(-2.0 * Math.PI * (frequency / sampleRate));
+                    a0 = 1.0 - b1;
+                    b1 = -b1;
+                    a1 = a2 = b2 = 0;
+                    break;
+                case "one-pole hp":
+                    b1 = -Math.exp(-2.0 * Math.PI * (0.5 - frequency / sampleRate));
+                    a0 = 1.0 + b1;
+                    b1 = -b1;
+                    a1 = a2 = b2 = 0;
+                    break;
+                case "lowpass":
+                    norm = 1 / (1 + K / Q + K * K);
+                    a0 = K * K * norm;
+                    a1 = 2 * a0;
+                    a2 = a0;
+                    b1 = 2 * (K * K - 1) * norm;
+                    b2 = (1 - K / Q + K * K) * norm;
+                    break;
+                case "highpass":
+                    norm = 1 / (1 + K / Q + K * K);
+                    a0 = 1 * norm;
+                    a1 = -2 * a0;
+                    a2 = a0;
+                    b1 = 2 * (K * K - 1) * norm;
+                    b2 = (1 - K / Q + K * K) * norm;
+                    break;
+                case "bandpass":
+                    norm = 1 / (1 + K / Q + K * K);
+                    a0 = K / Q * norm;
+                    a1 = 0;
+                    a2 = -a0;
+                    b1 = 2 * (K * K - 1) * norm;
+                    b2 = (1 - K / Q + K * K) * norm;
+                    break;
+                case "notch":
+                    norm = 1 / (1 + K / Q + K * K);
+                    a0 = (1 + K * K) * norm;
+                    a1 = 2 * (K * K - 1) * norm;
+                    a2 = a0;
+                    b1 = a1;
+                    b2 = (1 - K / Q + K * K) * norm;
+                    break;
+                case "peak":
+                    if (peakGain >= 0) {
+                        norm = 1 / (1 + 1 / Q * K + K * K);
+                        a0 = (1 + V / Q * K + K * K) * norm;
+                        a1 = 2 * (K * K - 1) * norm;
+                        a2 = (1 - V / Q * K + K * K) * norm;
+                        b1 = a1;
+                        b2 = (1 - 1 / Q * K + K * K) * norm;
+                    }
+                    else {
+                        norm = 1 / (1 + V / Q * K + K * K);
+                        a0 = (1 + 1 / Q * K + K * K) * norm;
+                        a1 = 2 * (K * K - 1) * norm;
+                        a2 = (1 - 1 / Q * K + K * K) * norm;
+                        b1 = a1;
+                        b2 = (1 - V / Q * K + K * K) * norm;
+                    }
+                    break;
+                case "lowShelf":
+                    if (peakGain >= 0) {
+                        norm = 1 / (1 + Math.SQRT2 * K + K * K);
+                        a0 = (1 + Math.sqrt(2 * V) * K + V * K * K) * norm;
+                        a1 = 2 * (V * K * K - 1) * norm;
+                        a2 = (1 - Math.sqrt(2 * V) * K + V * K * K) * norm;
+                        b1 = 2 * (K * K - 1) * norm;
+                        b2 = (1 - Math.SQRT2 * K + K * K) * norm;
+                    }
+                    else {
+                        norm = 1 / (1 + Math.sqrt(2 * V) * K + V * K * K);
+                        a0 = (1 + Math.SQRT2 * K + K * K) * norm;
+                        a1 = 2 * (K * K - 1) * norm;
+                        a2 = (1 - Math.SQRT2 * K + K * K) * norm;
+                        b1 = 2 * (V * K * K - 1) * norm;
+                        b2 = (1 - Math.sqrt(2 * V) * K + V * K * K) * norm;
+                    }
+                    break;
+                case "highShelf":
+                    if (peakGain >= 0) {
+                        norm = 1 / (1 + Math.SQRT2 * K + K * K);
+                        a0 = (V + Math.sqrt(2 * V) * K + K * K) * norm;
+                        a1 = 2 * (K * K - V) * norm;
+                        a2 = (V - Math.sqrt(2 * V) * K + K * K) * norm;
+                        b1 = 2 * (K * K - 1) * norm;
+                        b2 = (1 - Math.SQRT2 * K + K * K) * norm;
+                    }
+                    else {
+                        norm = 1 / (V + Math.sqrt(2 * V) * K + K * K);
+                        a0 = (1 + Math.SQRT2 * K + K * K) * norm;
+                        a1 = 2 * (K * K - 1) * norm;
+                        a2 = (1 - Math.SQRT2 * K + K * K) * norm;
+                        b1 = 2 * (K * K - V) * norm;
+                        b2 = (V - Math.sqrt(2 * V) * K + K * K) * norm;
+                    }
+                    break;
+            }
+            return { a0: a0, a1: a1, a2: a2, b1: b1, b2: b2, };
+        };
+        AuBiquadFilter.prototype.setCoefficients = function (coef) {
+            if (coef) {
+                this.numberOfCascade = this.getNumberOfCascadeFilters(coef);
+                this.coefficients = [];
+                this.coeffGain = coef[0];
+                for (var i = 0; i < this.numberOfCascade; i++) {
+                    this.coefficients[i] = {
+                        b1: coef[1 + i * 4],
+                        b2: coef[2 + i * 4],
+                        a0: 1,
+                        a1: coef[3 + i * 4],
+                        a2: coef[4 + i * 4]
+                    };
+                }
+                this.resetMemories();
+                return true;
+            }
+            else {
+                throw new Error("No coefficients are set");
+            }
+        };
+        AuBiquadFilter.prototype.getNumberOfCascadeFilters = function (coef) { return (coef.length - 1) / 4; };
+        AuBiquadFilter.prototype.resetMemories = function () {
+            this.memories = [{
+                    xi1: 0,
+                    xi2: 0,
+                    yi1: 0,
+                    yi2: 0
+                }];
+            for (var i = 1; i < this.numberOfCascade; i++) {
+                this.memories[i] = {
+                    yi1: 0,
+                    yi2: 0
+                };
+            }
+        };
+        AuBiquadFilter.prototype.onSample = function (s) {
+            if (this.onSampleAction != null)
+                this.onSampleAction(s);
+        };
+        AuBiquadFilter.prototype.initOnSampleAction = function () {
+            var _this = this;
+            var x;
+            var y = [];
+            var b1, b2, a1, a2;
+            var xi1, xi2, yi1, yi2, y1i1, y1i2;
+            this.onSampleAction = function (sample) {
+                x = sample.c;
+                b1 = _this.coefficients[0].b1;
+                b2 = _this.coefficients[0].b2;
+                a1 = _this.coefficients[0].a1;
+                a2 = _this.coefficients[0].a2;
+                xi1 = _this.memories[0].xi1;
+                xi2 = _this.memories[0].xi2;
+                yi1 = _this.memories[0].yi1;
+                yi2 = _this.memories[0].yi2;
+                y[0] = x + b1 * xi1 + b2 * xi2 - a1 * yi1 - a2 * yi2;
+                for (var e = 1; e < _this.numberOfCascade; e++) {
+                    b1 = _this.coefficients[e].b1;
+                    b2 = _this.coefficients[e].b2;
+                    a1 = _this.coefficients[e].a1;
+                    a2 = _this.coefficients[e].a2;
+                    y1i1 = _this.memories[e - 1].yi1;
+                    y1i2 = _this.memories[e - 1].yi2;
+                    yi1 = _this.memories[e].yi1;
+                    yi2 = _this.memories[e].yi2;
+                    y[e] = y[e - 1] + b1 * y1i1 + b2 * y1i2 - a1 * yi1 - a2 * yi2;
+                }
+                sample.c = y[_this.numberOfCascade - 1] * _this.coeffGain;
+                _this.memories[0].xi2 = _this.memories[0].xi1;
+                _this.memories[0].xi1 = x;
+                for (var p = 0; p < _this.numberOfCascade; p++) {
+                    _this.memories[p].yi2 = _this.memories[p].yi1;
+                    _this.memories[p].yi1 = y[p];
+                }
+            };
+        };
+        AuBiquadFilter.prototype.ssssprocesss = function (inputBuffer, outputBuffer) {
+            var x;
+            var y = [];
+            var b1, b2, a1, a2;
+            var xi1, xi2, yi1, yi2, y1i1, y1i2;
+            for (var i = 0; i < inputBuffer.length; i++) {
+                x = inputBuffer[i];
+                b1 = this.coefficients[0].b1;
+                b2 = this.coefficients[0].b2;
+                a1 = this.coefficients[0].a1;
+                a2 = this.coefficients[0].a2;
+                xi1 = this.memories[0].xi1;
+                xi2 = this.memories[0].xi2;
+                yi1 = this.memories[0].yi1;
+                yi2 = this.memories[0].yi2;
+                y[0] = x + b1 * xi1 + b2 * xi2 - a1 * yi1 - a2 * yi2;
+                for (var e = 1; e < this.numberOfCascade; e++) {
+                    b1 = this.coefficients[e].b1;
+                    b2 = this.coefficients[e].b2;
+                    a1 = this.coefficients[e].a1;
+                    a2 = this.coefficients[e].a2;
+                    y1i1 = this.memories[e - 1].yi1;
+                    y1i2 = this.memories[e - 1].yi2;
+                    yi1 = this.memories[e].yi1;
+                    yi2 = this.memories[e].yi2;
+                    y[e] = y[e - 1] + b1 * y1i1 + b2 * y1i2 - a1 * yi1 - a2 * yi2;
+                }
+                outputBuffer[i] = y[this.numberOfCascade - 1] * this.coeffGain;
+                this.memories[0].xi2 = this.memories[0].xi1;
+                this.memories[0].xi1 = x;
+                for (var p = 0; p < this.numberOfCascade; p++) {
+                    this.memories[p].yi2 = this.memories[p].yi1;
+                    this.memories[p].yi1 = y[p];
+                }
+            }
+        };
+        return AuBiquadFilter;
+    }(AuNode_4.AuNode));
+    exports.AuBiquadFilter = AuBiquadFilter;
+});
+define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen", "au/fx/AuBiquadFilter"], function (require, exports, AuEngine_5, NoteOscillator_1, MainScreen_1, AuBiquadFilter_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Main = (function () {
@@ -687,8 +1024,14 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator
             $(document).ready(this.run);
         }
         Main.prototype.connectMyDevices = function () {
-            var o1 = new NoteOscillator_1.NoteOscillator(1);
-            o1.outTo(this.engine);
+            var osc = new NoteOscillator_1.NoteOscillator(1);
+            var lowpass = new AuBiquadFilter_1.AuBiquadFilter({
+                type: 'lowpass',
+                frequency: 1000, sampleRate: AuEngine_5.AuEngine._.sampleRateGlobal,
+                Q: 22, peakGain: 6
+            });
+            osc.outTo(lowpass);
+            lowpass.outTo(this.engine);
         };
         return Main;
     }());

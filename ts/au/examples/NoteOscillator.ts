@@ -2,30 +2,38 @@ import {Oscillator} from "./Oscillator";
 import {AuMidi} from "../AuMidi";
 import {WaveForm} from "../WaveForm";
 import {Calc} from "../../tools/Calc";
+import {AuSample} from "../AuSample";
+import {AuSmoother} from "../AuSmoother";
+import {Main} from "../../Main";
 
 export class NoteOscillator extends Oscillator{
   constructor(public multiplier:number){
     super(0);
+    Main.me.screen.signalOutput.baseFrequencyProvider=()=>this.frequency;
+    this.midi=AuMidi._;
+    this.cutoff=this.midi.cutoff;
+    this.attack=this.midi.attack;
+    this.modulation=this.midi.modulation;
+    this.waveGenerator=(pos:number)=>{
+      const n=this.midi.keyIdx(0);
+      // return WaveForm.simplePhaseModulation(pos,
+      //     Calc.mix(.2, 3, this.cutoff.nextSmoothed),
+      //     Calc.mix(-Math.PI, Math.PI, this.attack.nextSmoothed)
+      // );
+      // return WaveForm.trohoid(pos, Calc.mix(.2,4, this.cutoff.nextSmoothed));
+      return WaveForm.triSawFolded(pos, 1-this.modulation.nextSmoothed);
+      // return WaveForm.pow(WaveForm.sine, pos, Calc.mix(.02,1024*8, Math.pow(this.cutoff.nextSmoothed, 4)))
+    };
   }
-  process(buffer: AudioBuffer){
-    const midi=AuMidi._;
-    for(let i=0;i<buffer.length;++i){
-      const n=midi.keyIdx(0);
-      const on=this.on=n!=null;
-      if(this.on)
-        this.frequency = (on?(n.freqPitched):0)*this.multiplier;
-      const step = this.frequency/buffer.sampleRate;
-      this.incPosition(step);
-      const val=this.on?
-        // WaveForm.trohoid(this.position,(on?n.vel:.5)*Calc.mix(1,3, midi.modulation))
-        // WaveForm.trohoid(this.position, Calc.mix(.4,1, midi.modulation))
-        // WaveForm.sine(this.position)
-        WaveForm.pow(WaveForm.sine, this.position, Calc.mix(8,2048, Math.pow(midi.modulation, 4)))
-        // WaveForm.triSawFolded(this.position, Calc.mix(.0,1, midi.modulation))
-        :0;
-      for (let channel=0; channel<buffer.numberOfChannels;++channel)
-        buffer.getChannelData(channel)[i]+= val;
-    }
+  private readonly cutoff:AuSmoother;
+  private readonly attack:AuSmoother;
+  private readonly modulation:AuSmoother;
+  onSample(s: AuSample): void{
+    const n=this.midi.keyIdx(0);
+    this.on=n!=null;
+    this.frequency = (this.on?(n.freqPitched):0)*this.multiplier;
+    super.onSample(s);
   }
+  readonly midi:AuMidi;
   toStr(){   return `NoteOsc(${this.frequency})`;  }
 }

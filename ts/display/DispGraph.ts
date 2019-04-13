@@ -15,12 +15,14 @@ const mx=Calc.mix;
 export class DispGraph extends Graphics{
   constructor(public size:Sz){
     super();
+    if(!this.baseFrequencyProvider)
+      this.baseFrequencyProvider=()=>0;
   }
-  samplesToDraw=Math.floor(AuEngine.BUF_SZ);
-  startFromSilenceUp=false;
+  samplesToDraw=Math.floor(AuEngine.BUF_SZ/2);
   private wasZero=false;
   private fadeTick=0;
   resolution=2;
+  baseFrequencyProvider:()=>number;
   drawFrame=()=>{
     const isZero = this.isSilense();
     let doChange=true;
@@ -58,25 +60,26 @@ export class DispGraph extends Graphics{
     this.drawRect(0,0, sz.w, sz.h);
   };
   findTheLoudestFirstSample=(channel:number)=>{
-    const buffer=this.engine.lastBuffer;
-    const epsilon=.01, izZero=(v:number) =>Math.abs(v)<epsilon;
-    let loudestIdx=0, loudestMax=0;
-    const dat=buffer.getChannelData(channel);
-    for(let i=0;i<buffer.length;++i){
-      const spl=dat[i];
-      if(spl>loudestMax){
-        loudestMax=spl;
-        loudestIdx=i;
-      }
-    }
-    return loudestIdx;
+    const freq=this.baseFrequencyProvider();
+    $('#freqInfo').html((freq==0?'...':(Math.round(freq*100)/100)+' Hz'));
+    if(freq==0)return 0;
+    const buffer=this.engine.lastBuffer,
+          totalSamples=this.engine.totalSamplesProcssed;
+    // const period = buffer.sampleRate/freq;
+    // const periodFloor = Math.floor(period);
+    // return period - totalSamples%periodFloor;
+    const period = buffer.sampleRate/freq;
+    return Math.round(period-(totalSamples/period-Math.floor(totalSamples/period))*period);
   };
+  modulusFloat(a:number, b:number){
+    const div=(a/b);
+    return (div-Math.floor(div))*b;
+  }
   drawChannel(channel:number){
     const sz={w:this.size.w, h:this.size.h, x:0, y:0};
     const buffer=this.engine.lastBuffer;
     if(buffer){
       let startSampleIdx=0;
-      if(this.startFromSilenceUp)
         startSampleIdx=this.findTheLoudestFirstSample(channel);
       // this.beginFill(0,0);
       this.lineStyle(2, 0x33ccff, 1);
