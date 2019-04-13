@@ -297,18 +297,18 @@ export class AuBiquadFilter extends AuNode{
 
   onSample(s: AuSample){
     if(this.onSampleAction!=null)
-      this.onSampleAction(s);
+      return this.onSampleAction(s);
+    return s;
   }
 
-  onSampleAction:(s:AuSample)=>void;
+  onSampleAction:(s:AuSample)=>number;
 
   initOnSampleAction(){
     let x:number;
     let y:number[] = [];
     let b1:number, b2:number, a1:number, a2:number;
     let xi1:number, xi2:number, yi1:number, yi2:number, y1i1:number, y1i2:number;
-    this.onSampleAction=sample=>{
-      x = sample.c;
+    this.onSampleAction=x=>{
       // Save coefficients in local variables
       b1 = this.coefficients[0].b1;
       b2 = this.coefficients[0].b2;
@@ -340,7 +340,7 @@ export class AuBiquadFilter extends AuNode{
       }
 
       // Write the output
-      sample.c = y[this.numberOfCascade - 1] * this.coeffGain;
+      const ret = y[this.numberOfCascade - 1] * this.coeffGain;
 
       // Update the memories
       this.memories[0].xi2 = this.memories[0].xi1;
@@ -350,7 +350,7 @@ export class AuBiquadFilter extends AuNode{
         this.memories[p].yi2 = this.memories[p].yi1;
         this.memories[p].yi1 = y[p];
       }
-
+      return ret;
     };
   }
 

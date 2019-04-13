@@ -9,7 +9,7 @@ export class Oscillator extends AuNode{
   constructor(public frequency:number, public waveGenerator:FnWaveGenerator=null){
     super();
     if(this.waveGenerator==null)
-      this.waveGenerator=(pos:number)=>WaveForm.triangle(pos);
+      this.waveGenerator=(pos:number)=>WaveForm.sine(pos);
   }
   protected position=0.;
   protected incPosition(step:number){
@@ -17,10 +17,10 @@ export class Oscillator extends AuNode{
     if(this.position>1)this.position-=1;
   }
   on:boolean=true;
-  onSample(s: AuSample): void{
-    const step = this.frequency/s.rate;
+  onSample(s: AuSample){
+    const step = this.frequency/this.sampleRate;
     this.incPosition(step);
-    s.c = this.on? this.waveGenerator(this.position):0;
+    return s + (this.on? this.waveGenerator(this.position):0);
   }
 
   toStr(){   return `Osc(${this.frequency})`;  }

@@ -28,11 +28,11 @@ export class NoteOscillator extends Oscillator{
   protected readonly cutoff:AuSmoother;
   protected readonly attack:AuSmoother;
   protected readonly modulation:AuSmoother;
-  onSample(s: AuSample): void{
+  onSample(s: AuSample){
     const n=this.midi.keyIdx(0);
     this.on=n!=null;
     this.frequency = (this.on?(n.freqPitched):0)*this.multiplier;
-    super.onSample(s);
+    return super.onSample(s);
   }
   readonly midi:AuMidi;
   toStr(){   return `NoteOsc(${this.frequency})`;  }

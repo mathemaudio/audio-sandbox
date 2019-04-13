@@ -10,10 +10,10 @@ import {Calc} from "../../tools/Calc";
 export class SubtrSynth extends NoteOscillator{
   readonly lowpass:AuBiquadFilter;
 
-  constructor(){
-    super(1);
+  constructor(multiplier:number){
+    super(multiplier);
     this.resonance=this.midi.resonance;
-    this.lowpass=new AuBiquadFilter('lowpass', 1000,AuEngine._.sampleRateGlobal,3,6);
+    this.lowpass=new AuBiquadFilter('lowpass', 1000,this.sampleRate,3,6);
     this.midi2lowpass();
   }
   private readonly resonance:AuSmoother;
@@ -25,11 +25,12 @@ export class SubtrSynth extends NoteOscillator{
   };
   onSample(s: AuSample){
     this.midi2lowpass();
-    super.onSample(s);
+    return super.onSample(s);
   }
 
   outTo(child: AuNode){
     super.outTo(this.lowpass);
     this.lowpass.outTo(child);
+    return child;
   }
 }
