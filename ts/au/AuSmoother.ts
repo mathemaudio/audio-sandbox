@@ -5,6 +5,9 @@ export class AuSmoother {
     this.currVal=this.inputFn();
   }
   private currVal:number;
+  get next(){
+    return this.currVal=this.inputFn();
+  }
   get nextSmoothed(){
     return this.currVal = Calc.mix(this.currVal, this.inputFn(), this.strength);
   }

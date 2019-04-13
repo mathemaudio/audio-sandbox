@@ -119,9 +119,9 @@ export class AuMidi {
   get modulation(){ return new AuSmoother(()=>this.modulationRaw); }  private modulationRaw = 0;
   get attack(){ return new AuSmoother(()=>this.attackRaw); }  private attackRaw = 0;
   get decay(){ return new AuSmoother(()=>this.decayRaw); }  private decayRaw = 0;
-  get release(){ return new AuSmoother(()=>this.releaseRaw); }  private releaseRaw = 0;
-  get cutoff(){ return new AuSmoother(()=>this.cutoffRaw); }  private cutoffRaw = 0;
-  get resonance(){ return new AuSmoother(()=>this.resonanceRaw); }  private resonanceRaw = 0;
+  get release(){ return new AuSmoother(()=>this.releaseRaw); }  private releaseRaw = .5;
+  get cutoff(){ return new AuSmoother(()=>this.cutoffRaw); }  private cutoffRaw = 0.5;
+  get resonance(){ return new AuSmoother(()=>this.resonanceRaw); }  private resonanceRaw = .5;
 
   get on(){
     for (let i in this.keys) return true;

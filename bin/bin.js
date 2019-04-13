@@ -122,6 +122,13 @@ define("au/AuSmoother", ["require", "exports", "tools/Calc"], function (require,
             this.strength = strength;
             this.currVal = this.inputFn();
         }
+        Object.defineProperty(AuSmoother.prototype, "next", {
+            get: function () {
+                return this.currVal = this.inputFn();
+            },
+            enumerable: true,
+            configurable: true
+        });
         Object.defineProperty(AuSmoother.prototype, "nextSmoothed", {
             get: function () {
                 return this.currVal = Calc_1.Calc.mix(this.currVal, this.inputFn(), this.strength);
@@ -211,9 +218,9 @@ define("au/AuMidi", ["require", "exports", "tools/Calc", "au/AuEngine", "au/AuSm
             this.modulationRaw = 0;
             this.attackRaw = 0;
             this.decayRaw = 0;
-            this.releaseRaw = 0;
-            this.cutoffRaw = 0;
-            this.resonanceRaw = 0;
+            this.releaseRaw = .5;
+            this.cutoffRaw = 0.5;
+            this.resonanceRaw = .5;
             this.keys = {};
             this.connect();
         }
@@ -764,24 +771,63 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuBiquadFilter = (function (_super) {
         __extends(AuBiquadFilter, _super);
-        function AuBiquadFilter(params) {
+        function AuBiquadFilter(type, frequency, sampleRate, Q, peakGain) {
             var _this = _super.call(this) || this;
+            _this.appliedTimes = 0;
             _this.initOnSampleAction();
             _this.coefficients = [];
             _this.numberOfCascade = 1;
             _this.resetMemories();
-            _this.params = params;
+            _this._type = type;
+            _this._frequency = frequency;
+            _this._sampleRate = sampleRate;
+            _this._Q = Q;
+            _this._peakGain = peakGain;
+            _this.apply(true);
             return _this;
         }
-        Object.defineProperty(AuBiquadFilter.prototype, "params", {
-            get: function () { return this._params; },
-            set: function (p) {
-                var coef = this.calcBiquad(p.type, p.frequency, p.sampleRate, p.Q, p.peakGain);
-                this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2]);
-            },
+        Object.defineProperty(AuBiquadFilter.prototype, "type", {
+            get: function () { return this._type; },
+            set: function (t) { if (this._type == t)
+                return; this._type = t; this.apply(); },
             enumerable: true,
             configurable: true
         });
+        Object.defineProperty(AuBiquadFilter.prototype, "frequency", {
+            get: function () { return this._frequency; },
+            set: function (t) { if (this._frequency == t)
+                return; this._frequency = t; this.apply(); },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuBiquadFilter.prototype, "sampleRate", {
+            get: function () { return this._sampleRate; },
+            set: function (t) { if (this._sampleRate == t)
+                return; this._sampleRate = t; this.apply(); },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuBiquadFilter.prototype, "Q", {
+            get: function () { return this._Q; },
+            set: function (t) { if (this._Q == t)
+                return; this._Q = t; this.apply(); },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(AuBiquadFilter.prototype, "peakGain", {
+            get: function () { return this._peakGain; },
+            set: function (t) { if (this._peakGain == t)
+                return; this._peakGain = t; this.apply(); },
+            enumerable: true,
+            configurable: true
+        });
+        AuBiquadFilter.prototype.apply = function (reset) {
+            if (reset === void 0) { reset = false; }
+            this.appliedTimes++;
+            var p = this;
+            var coef = this.calcBiquad(p.type, p.frequency, p.sampleRate, p.Q, p.peakGain);
+            this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2], reset);
+        };
         AuBiquadFilter.prototype.calcBiquad = function (type, frequency, sampleRate, Q, peakGain) {
             var a0, a1, a2, b1, b2, norm;
             var ymin, ymax, minVal, maxVal;
@@ -889,7 +935,7 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
             }
             return { a0: a0, a1: a1, a2: a2, b1: b1, b2: b2, };
         };
-        AuBiquadFilter.prototype.setCoefficients = function (coef) {
+        AuBiquadFilter.prototype.setCoefficients = function (coef, reset) {
             if (coef) {
                 this.numberOfCascade = this.getNumberOfCascadeFilters(coef);
                 this.coefficients = [];
@@ -903,7 +949,8 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
                         a2: coef[4 + i * 4]
                     };
                 }
-                this.resetMemories();
+                if (reset)
+                    this.resetMemories();
                 return true;
             }
             else {
@@ -1006,7 +1053,35 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
     }(AuNode_4.AuNode));
     exports.AuBiquadFilter = AuBiquadFilter;
 });
-define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen", "au/fx/AuBiquadFilter"], function (require, exports, AuEngine_5, NoteOscillator_1, MainScreen_1, AuBiquadFilter_1) {
+define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscillator", "au/fx/AuBiquadFilter", "au/AuEngine", "tools/Calc"], function (require, exports, NoteOscillator_1, AuBiquadFilter_1, AuEngine_5, Calc_5) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var SubtrSynth = (function (_super) {
+        __extends(SubtrSynth, _super);
+        function SubtrSynth() {
+            var _this = _super.call(this, 1) || this;
+            _this.midi2lowpass = function () {
+                _this.lowpass.frequency = Calc_5.Calc.mix(300, 8000, _this.cutoff.nextSmoothed);
+                _this.lowpass.Q = Calc_5.Calc.mix(1, 22, _this.resonance.nextSmoothed);
+            };
+            _this.resonance = _this.midi.resonance;
+            _this.lowpass = new AuBiquadFilter_1.AuBiquadFilter('lowpass', 1000, AuEngine_5.AuEngine._.sampleRateGlobal, 3, 6);
+            _this.midi2lowpass();
+            return _this;
+        }
+        SubtrSynth.prototype.onSample = function (s) {
+            this.midi2lowpass();
+            _super.prototype.onSample.call(this, s);
+        };
+        SubtrSynth.prototype.outTo = function (child) {
+            _super.prototype.outTo.call(this, this.lowpass);
+            this.lowpass.outTo(child);
+        };
+        return SubtrSynth;
+    }(NoteOscillator_1.NoteOscillator));
+    exports.SubtrSynth = SubtrSynth;
+});
+define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator", "display/MainScreen", "au/fx/AuBiquadFilter", "au/AuMidi", "au/examples/SubtrSynth"], function (require, exports, AuEngine_6, NoteOscillator_2, MainScreen_1, AuBiquadFilter_2, AuMidi_3, SubtrSynth_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Main = (function () {
@@ -1014,7 +1089,7 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator
             var _this = this;
             this.run = function () {
                 $('#forCanvas').html('');
-                _this.engine = AuEngine_5.AuEngine._;
+                _this.engine = AuEngine_6.AuEngine._;
                 _this.screen = new MainScreen_1.MainScreen();
                 _this.connectMyDevices();
                 setTimeout(function () { return $('#wait').remove(); }, 300);
@@ -1024,12 +1099,25 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator
             $(document).ready(this.run);
         }
         Main.prototype.connectMyDevices = function () {
-            var osc = new NoteOscillator_1.NoteOscillator(1);
-            var lowpass = new AuBiquadFilter_1.AuBiquadFilter({
-                type: 'lowpass',
-                frequency: 1000, sampleRate: AuEngine_5.AuEngine._.sampleRateGlobal,
-                Q: 22, peakGain: 6
-            });
+            var moog = new SubtrSynth_1.SubtrSynth();
+            moog.outTo(this.engine);
+            var logApplied = function () { console.log("applied " + moog.lowpass.appliedTimes + " times"); setTimeout(logApplied, 250); };
+            logApplied();
+            return;
+            var osc = new NoteOscillator_2.NoteOscillator(1);
+            var lowpass = new AuBiquadFilter_2.AuBiquadFilter('lowpass', 1000, AuEngine_6.AuEngine._.sampleRateGlobal, 3, 6);
+            var procLowPass = function () {
+                var m = AuMidi_3.AuMidi._;
+                var cutoff = m.cutoff;
+                var res = m.resonance;
+                var controlLowPass = function () {
+                    lowpass.frequency = cutoff.next * 8000;
+                    lowpass.Q = res.next * 22;
+                    requestAnimationFrame(controlLowPass);
+                };
+                controlLowPass();
+            };
+            procLowPass();
             osc.outTo(lowpass);
             lowpass.outTo(this.engine);
         };
@@ -1038,7 +1126,7 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/NoteOscillator
     exports.Main = Main;
     new Main();
 });
-define("au/AuConvolution", ["require", "exports", "au/AuEngine"], function (require, exports, AuEngine_6) {
+define("au/AuConvolution", ["require", "exports", "au/AuEngine"], function (require, exports, AuEngine_7) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuConvolution = (function () {
@@ -1047,7 +1135,7 @@ define("au/AuConvolution", ["require", "exports", "au/AuEngine"], function (requ
             this.convolver = this.ctx.createConvolver();
         }
         Object.defineProperty(AuConvolution.prototype, "ctx", {
-            get: function () { return AuEngine_6.AuEngine._.audioCtx; },
+            get: function () { return AuEngine_7.AuEngine._.audioCtx; },
             enumerable: true,
             configurable: true
         });
@@ -1079,7 +1167,7 @@ define("au/AuConvolution", ["require", "exports", "au/AuEngine"], function (requ
             });
         };
         AuConvolution.prototype.plugToEngine = function () {
-            AuEngine_6.AuEngine._.insertJSAudioNodeToEnd(this.convolver);
+            AuEngine_7.AuEngine._.insertJSAudioNodeToEnd(this.convolver);
         };
         return AuConvolution;
     }());

@@ -28,19 +28,38 @@ type MemoryCell={
   yi2: number,
 }
 
-export type AuBiquadParams = {
-  type:AuBiquadType,
-  frequency:number, sampleRate:number,
-  Q:number, peakGain:number
-}
 
 export class AuBiquadFilter extends AuNode{
 
-  private _params:AuBiquadParams;
-  get params(){ return this._params; }
-  set params(p){
+
+  constructor(type:AuBiquadType,
+              frequency:number, sampleRate:number,
+              Q:number, peakGain:number) {
+    super();
+    this.initOnSampleAction();
+    this.coefficients = [];
+    this.numberOfCascade = 1;
+    this.resetMemories();
+    this._type=type;
+    this._frequency=frequency;
+    this._sampleRate=sampleRate;
+    this._Q=Q;
+    this._peakGain=peakGain;
+    this.apply(true);
+  }
+  get type(){return this._type} set type(t){if(this._type==t)return;this._type=t;this.apply();}  _type:AuBiquadType;
+  get frequency(){return this._frequency} set frequency(t){if(this._frequency==t)return;this._frequency=t;this.apply();}  _frequency:number;
+  get sampleRate(){return this._sampleRate} set sampleRate(t){if(this._sampleRate==t)return;this._sampleRate=t;this.apply();}  _sampleRate:number;
+  get Q(){return this._Q} set Q(t){if(this._Q==t)return;this._Q=t;this.apply();}  _Q:number;
+  get peakGain(){return this._peakGain} set peakGain(t){if(this._peakGain==t)return;this._peakGain=t;this.apply();}  _peakGain:number;
+
+
+  appliedTimes=0;
+  apply(reset=false){
+    this.appliedTimes++;
+    const p=this;
     const coef = this.calcBiquad(p.type, p.frequency, p.sampleRate, p.Q, p.peakGain);
-    this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2]);
+    this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2], reset);
   }
 
 
@@ -204,14 +223,6 @@ export class AuBiquadFilter extends AuNode{
 
 
 
-  constructor(params:AuBiquadParams) {
-    super();
-    this.initOnSampleAction();
-    this.coefficients = [];
-    this.numberOfCascade = 1;
-    this.resetMemories();
-    this.params = params;
-  }
 
 
   private coefficients:AuBiquadCoefficients[];
@@ -227,9 +238,10 @@ export class AuBiquadFilter extends AuNode{
    firstBiquad a1,
    firstBiquad a2,
    //secondBiquad b1,
-   //secondBIquad b2, etc.
+   //secmondBIquad b2, etc.
+   * @param reset force resetting
    */
-  setCoefficients(coef:number[]) {
+  setCoefficients(coef:number[], reset:boolean) {
     if (coef) {
       // If there is not a number of biquads, we consider that there is only 1 biquad.
       this.numberOfCascade = this.getNumberOfCascadeFilters(coef);
@@ -248,7 +260,8 @@ export class AuBiquadFilter extends AuNode{
         };
       }
       // Need to reset the memories after change the coefficients
-      this.resetMemories();
+      if(reset)
+        this.resetMemories();
       return true;
     } else {
       throw new Error("No coefficients are set");
