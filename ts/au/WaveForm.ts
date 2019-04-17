@@ -72,7 +72,13 @@ export class WaveForm {
     phase < .25?remix(0,.25, phase, 0, 1):
       phase < .75?remix(.25, .75, phase, 1, -1):
         remix(.75, 1, phase, -1, 0);
-  static saw=(phase:number)=> -phase;
+  static saw=(phase:number)=> Calc.mix(1, -1, phase);
+  static pulse=(phase:number, size:number=.05)=> {
+    const sz=size;
+    if(phase<sz)return 1;
+    if(phase<sz*2)return -1;
+    return 0;
+  };
 
 
   /**

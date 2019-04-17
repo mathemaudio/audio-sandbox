@@ -46,7 +46,7 @@ export class AuEngine extends AuNode{
     this.sampleRate=buffer.sampleRate;
     const spl=0, data=buffer.getChannelData(0);
     for(let i=0;i<buffer.length;++i)
-      data[i] = this.onSampleParented(/*data[i]*/0);
+      data[i] = this.getNextSample(/*data[i]*/0);
     this.lastBuffer=buffer;
     this.totalSamplesProcssed+=buffer.length;
   }
@@ -75,6 +75,9 @@ export class AuEngine extends AuNode{
     this.lastAttachedNode=node;
   }
   initSampleRate(){  if(this.audioCtx)  this.sampleRate=this.audioCtx.sampleRate;  }
+
+  sec2spl=(sec:number)=>{ return Math.floor(sec*this.sampleRate);  };
+  spl2sec=(spl:number)=>{ return spl/this.sampleRate; };
 
   private mainScriptNode:ScriptProcessorNode;
   private lastAttachedNode:AudioNode;

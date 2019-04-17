@@ -11,21 +11,27 @@ export class AuNode {
   }
   initSampleRate(){ this.sampleRate=AuEngine._.sampleRate; }
 
-  onSample(s:number):number{
+  protected position=0.;
+  protected incPosition(step:number){
+    this.position+=step;
+    if(this.position>1)this.position-=1;
+  }
+  processSample(s:number):number{
     return s;
   }
-  onSampleParented(s:number):number{
+  getNextSample(s:number):number{
     if(this.parent)
-      s = this.parent.onSampleParented(s);
-    s = this.onSample(this.beforeOnSample(s));
-    if(this.parentAmplitude)
-      s = s * Calc.remix(
-              -1, 1,
-                    this.parentAmplitude.onSampleParented(0),
-              .0, 1);
+      s = this.parent.getNextSample(s);
+    this.beforeOnSample();
+    s = this.processSample(s);
+    // if(this.parentAmplitude)
+    //   s = s * Calc.remix(
+    //           -1, 1,
+    //                 this.parentAmplitude.getNextSample(0),
+    //           .0, 1);
     return s;
   }
-  beforeOnSample:(s:number)=>number=s=>s;
+  beforeOnSample:()=>void=()=>{};
 
 
   sampleRate:number;
@@ -42,11 +48,11 @@ export class AuNode {
     return child;
   }
 
-  parentAmplitude:AuNode=null;
-  amplitudeTo(child:AuNode){
-    this.child=child;
-    child.parentAmplitude=this;
-    return child;
-  }
+  // parentAmplitude:AuNode=null;
+  // amplitudeTo(child:AuNode){
+  //   this.child=child;
+  //   child.parentAmplitude=this;
+  //   return child;
+  // }
 
 }

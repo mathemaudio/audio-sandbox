@@ -1,19 +1,17 @@
 import {Calc} from "../tools/Calc";
 import {AuEngine} from "./AuEngine";
 import {AuSmoother} from "./AuSmoother";
+import {Utils} from "./Utils";
+import {Note} from "./Note";
+
+/**
+ * https://www.cs.cmu.edu/~music/cmsip/readings/MIDI%20tutorial%20for%20programmers.html
+ */
 
 
 type Num = number;
 
-type Velocity = number;
-type Note = {
-  note: number,
-  freqBase: number,
-  freqPitched: number,
-  vel: Velocity
-};
 type KeysMap = { [key: number]: Note };
-
 export class AuMidi {
   private constructor(){
     this.connect();
@@ -24,7 +22,10 @@ export class AuMidi {
     $('#midiInfo').html(`<b style="color:#${clr}">${msg}</b>`);
   }
   private connect(){
+    let assigned=false;
     const onMIDISuccess = (midiAccess: any) => {
+      if(assigned)return;
+      assigned=true;
       // when we get a succesful response, run this code
       console.log('MIDI Access Object', midiAccess);
       this.info('MIDI ON', '0a0');
@@ -58,14 +59,20 @@ export class AuMidi {
       n.freqPitched = this.findPitchedFreq(n.note);
     }
   }
-  private _lastEvent:Num[];
+  private msgCount=0;
+  private _lastEvent:Num[]=[];
   get lastEvent(){ return this._lastEvent; }
   private onMessage = (e: any) => {
-    const rawMsg = this._lastEvent = <Num[]>e.data,
+    this.msgCount++;
+    const _data:Num[]=[];
+    for(let i=0;i<e.data.length;++i)_data.push(e.data[i]);
+    const le=this._lastEvent;
+    if(le[0]==_data[0]  &&  le[1]==_data[1]  &&  le[2]==_data[2])return;
+    const rawMsg = this._lastEvent = _data,
       cmd = rawMsg[0] >> 4,
       channel = rawMsg[0] & 0xf,
       note = rawMsg[1];
-    if(this.onMidiEvent)this.onMidiEvent(rawMsg);
+    // if(this.onMidiEvent)this.onMidiEvent(rawMsg);
     const getHqNumber = (msb: number, lsb: number) => {
       const l =msb<<7 | lsb;
       const low=21, mid=8192, hi=16266;
@@ -79,15 +86,17 @@ export class AuMidi {
       case 8:
       case 9:
         const noteOn = cmd == 9 && velRaw!=0/*a special case: velocity=0 is actually "note off" cmd */;
-        if (noteOn)
-          this.keys[note] = {
+        if (noteOn){
+          this.keysArr.push(this.keys[note] = {
             note:note,
             vel:velLofi01,
             freqBase:this.noteToFreq(note),
             freqPitched:this.findPitchedFreq(note),
-          };
-        else
+          });
+        }else{
           delete this.keys[note];
+          this.keysArr = this.keysArr.filter(k=>k.note!=note);
+        }
         break;
       case 14:
         this.pitch = Calc.mix(-1, 1, velHQ);
@@ -110,11 +119,13 @@ export class AuMidi {
     }
     // const R=(n:number) => Math.round(n*1000)/1000;
     const R = (n: number) => n;
-    // console.log(JSON.stringify(this.keys) + `\npitch: ${R(this.pitch)}, mod: ${R(this.modulation)}, br: ${R(this.brightness)}`);
-    console.log(`cmd=${cmd}, ch=${channel}, note=${note}, vel=${velRaw}`);
+    // console.log(`pitch: ${R(this.pitch)}, mod: ${R(this.modulationRaw)}, res: ${R(this.resonanceRaw)}`);
+    // console.log(`cmd=${cmd}, ch=${channel}, note=${note}, vel=${velRaw}`);
+    // console.log(this.msgCount, this.keysArr.map(n=>n.note).join(', ')  );
+    Utils.trig('midi.msg', rawMsg);
+    this.emitTopMonoEvent();
   };
   pitch = 0;
-  onMidiEvent:(data:number[])=>void;
 
   get modulation(){ return new AuSmoother(()=>this.modulationRaw); }  private modulationRaw = 0;
   get attack(){ return new AuSmoother(()=>this.attackRaw); }  private attackRaw = 0;
@@ -128,17 +139,20 @@ export class AuMidi {
     return false;
   }
 
-  keyIdx(idx: number): Note{
-    let i = 0;
-    for (let k in this.keys) {
-      if (idx == i)
-        return this.keys[k];
-      i++;
-    }
-    return null;
+  get topMonoNote(){ return this.keysArr.length?this.keysArr[this.keysArr.length-1]:null; }
+  private prevTopMonoNote:Note;
+  private emitTopMonoEvent(){
+    const n=this.topMonoNote, p=this.prevTopMonoNote;
+    if(n==null && p==null || (p!=null&&n!=null && p.note==n.note))return;
+    this.prevTopMonoNote=n;
+    Utils.trig('midi.topNote', n);
+
   }
 
+
+
   keys: KeysMap = <KeysMap>{};
+  keysArr:Note[]=[];
 
   noteToFreq(note: number){
     const a = 440 * .9857;

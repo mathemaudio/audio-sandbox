@@ -2,17 +2,25 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a821f093-e3d6-48c7-89d2-a8f062a774da" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/ts/au/Note.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ts/au/Utils.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ts/au/envelope/ADSR.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ts/au/envelope/MidiADSR.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/ts/au/examples/MidiNoteOscillator.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bin/bin.js" beforeDir="false" afterPath="$PROJECT_DIR$/bin/bin.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/bin/bin.js.map" beforeDir="false" afterPath="$PROJECT_DIR$/bin/bin.js.map" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/Main.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/Main.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ts/_declare/Globalz.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/_declare/Globalz.d.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/AuEngine.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/AuEngine.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ts/au/AuMidi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/AuMidi.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/AuNode.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/AuNode.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ts/au/AuSample.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ts/au/WaveForm.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/WaveForm.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/examples/Oscillator.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/examples/Oscillator.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ts/au/fx/AuVolume.ts" beforeDir="false" afterPath="$PROJECT_DIR$/ts/au/fx/AuVolume.ts" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/.tmp/" />
     <ignored path="$PROJECT_DIR$/temp/" />
@@ -31,8 +39,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/ts/Main.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="367">
-              <caret line="54" column="32" lean-forward="true" selection-start-line="54" selection-start-column="32" selection-end-line="54" selection-end-column="32" />
+            <state relative-caret-position="105">
+              <caret line="63" column="44" lean-forward="true" selection-start-line="63" selection-start-column="44" selection-end-line="63" selection-end-column="44" />
               <folding>
                 <element signature="e#0#39#0" expanded="true" />
               </folding>
@@ -41,12 +49,21 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ts/au/AuNode.ts">
+        <entry file="file://$PROJECT_DIR$/ts/au/envelope/ADSR.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="210">
-              <caret line="22" column="20" lean-forward="true" selection-start-line="22" selection-start-column="20" selection-end-line="22" selection-end-column="20" />
+            <state relative-caret-position="322">
+              <caret line="54" column="22" lean-forward="true" selection-start-line="54" selection-start-column="22" selection-end-line="54" selection-end-column="22" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ts/au/envelope/MidiADSR.ts">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="165">
+              <caret line="11" selection-start-line="11" selection-end-line="11" />
               <folding>
-                <element signature="e#30#66#0" expanded="true" />
+                <element signature="e#0#28#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -55,8 +72,8 @@
       <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/ts/au/examples/Oscillator.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="285">
-              <caret line="19" column="74" selection-start-line="19" selection-start-column="74" selection-end-line="19" selection-end-column="74" />
+            <state relative-caret-position="150">
+              <caret line="10" column="38" selection-start-line="10" selection-start-column="38" selection-end-line="10" selection-end-column="38" />
               <folding>
                 <element signature="e#0#33#0" expanded="true" />
               </folding>
@@ -65,10 +82,31 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ts/au/WaveForm.ts">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="135">
+              <caret line="76" column="18" selection-start-line="76" selection-start-column="18" selection-end-line="76" selection-end-column="18" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ts/au/AuNode.ts">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="442">
+              <caret line="53" lean-forward="true" selection-start-line="53" selection-end-line="53" />
+              <folding>
+                <element signature="e#30#66#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="382">
-              <caret line="27" column="7" selection-start-line="27" selection-start-column="7" selection-end-line="27" selection-end-column="7" />
+            <state relative-caret-position="330">
+              <caret line="27" column="73" selection-start-line="27" selection-start-column="17" selection-end-line="27" selection-end-column="73" />
               <folding>
                 <element signature="e#0#48#0" expanded="true" />
               </folding>
@@ -77,34 +115,22 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="270">
-              <caret line="18" column="12" lean-forward="true" selection-start-line="18" selection-start-column="12" selection-end-line="18" selection-end-column="12" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="457">
-              <caret line="31" lean-forward="true" selection-start-line="31" selection-end-line="31" />
-              <folding>
-                <element signature="e#0#40#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/ts/au/AuEngine.ts">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="167">
-              <caret line="55" column="3" lean-forward="true" selection-start-line="55" selection-start-column="3" selection-end-line="55" selection-end-column="3" />
+            <state relative-caret-position="262">
+              <caret line="78" column="2" selection-start-line="78" selection-start-column="2" selection-end-line="78" selection-end-column="2" />
               <folding>
                 <element signature="n#style#0;n#b#0;n#!!top" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/ts/_declare/Globalz.d.ts">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="60">
+              <caret line="4" column="37" selection-start-line="4" selection-start-column="37" selection-end-line="4" selection-end-column="37" />
             </state>
           </provider>
         </entry>
@@ -124,15 +150,7 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>number</find>
-      <find>:Float</find>
-      <find>this</find>
-      <find>last</find>
-      <find>var</find>
-      <find>.75</find>
-      <find>rawMsg.data</find>
       <find>modulationGlide</find>
-      <find>attack</find>
       <find>DispGraph</find>
       <find>lastBuffer</find>
       <find>case</find>
@@ -154,6 +172,14 @@
       <find>setvo</find>
       <find>getDebugList</find>
       <find>ausam</find>
+      <find>onSampleParented</find>
+      <find>attack</find>
+      <find>findPitchedFreq</find>
+      <find>onMessage</find>
+      <find>_lastEvent</find>
+      <find>topMo</find>
+      <find>Velocity</find>
+      <find>NoteOscillator</find>
     </findStrings>
     <replaceStrings>
       <replace>Str</replace>
@@ -177,6 +203,8 @@
       <replace>sampleRate</replace>
       <replace>let</replace>
       <replace>peakGain</replace>
+      <replace>release</replace>
+      <replace>MidiNoteOscillator</replace>
     </replaceStrings>
   </component>
   <component name="Git.Settings">
@@ -190,7 +218,6 @@
         <option value="$PROJECT_DIR$/js/Main.ts" />
         <option value="$PROJECT_DIR$/ts/AuEngine.ts" />
         <option value="$PROJECT_DIR$/ts/AuNode.ts" />
-        <option value="$PROJECT_DIR$/ts/_declare/Globalz.d.ts" />
         <option value="$PROJECT_DIR$/ts/Stor.ts" />
         <option value="$PROJECT_DIR$/ts/_declare/pixi.d.ts" />
         <option value="$PROJECT_DIR$/ts/display/Screen.ts" />
@@ -201,20 +228,29 @@
         <option value="$PROJECT_DIR$/ts/au/AuConvolution.ts" />
         <option value="$APPLICATION_CONFIG_DIR$/scratches/testSomething.ts" />
         <option value="$PROJECT_DIR$/ts/TheCoolOscillator.ts" />
-        <option value="$PROJECT_DIR$/ts/au/WaveForm.ts" />
         <option value="$PROJECT_DIR$/index.html" />
         <option value="$PROJECT_DIR$/ts/display/DispGraph.ts" />
         <option value="$PROJECT_DIR$/ts/au/AuSmoother.ts" />
-        <option value="$PROJECT_DIR$/ts/au/AuMidi.ts" />
         <option value="$PROJECT_DIR$/ts/au/AuSample.ts" />
         <option value="$PROJECT_DIR$/ts/au/fx/Volume.ts" />
         <option value="$PROJECT_DIR$/ts/au/fx/AuVolume.ts" />
         <option value="$PROJECT_DIR$/ts/au/AuEngine.ts" />
-        <option value="$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts" />
+        <option value="$PROJECT_DIR$/ts/au/ADSR.ts" />
+        <option value="$PROJECT_DIR$/ts/_declare/Globalz.d.ts" />
+        <option value="$PROJECT_DIR$/ts/au/Utils.ts" />
+        <option value="$PROJECT_DIR$/ts/au/Note.ts" />
         <option value="$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts" />
+        <option value="$PROJECT_DIR$/ts/au/envelope/ADSR.ts" />
+        <option value="$PROJECT_DIR$/ts/au/AuMidi.ts" />
+        <option value="$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts" />
+        <option value="$PROJECT_DIR$/ts/au/envelope/MidiNoteADSR.ts" />
+        <option value="$PROJECT_DIR$/ts/au/envelope/NoteADSR.ts" />
+        <option value="$PROJECT_DIR$/ts/au/envelope/MidiADSR.ts" />
+        <option value="$PROJECT_DIR$/ts/au/examples/MidiNoteOscillator.ts" />
         <option value="$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts" />
-        <option value="$PROJECT_DIR$/ts/au/AuNode.ts" />
         <option value="$PROJECT_DIR$/ts/au/examples/Oscillator.ts" />
+        <option value="$PROJECT_DIR$/ts/au/AuNode.ts" />
+        <option value="$PROJECT_DIR$/ts/au/WaveForm.ts" />
         <option value="$PROJECT_DIR$/ts/Main.ts" />
       </list>
     </option>
@@ -321,6 +357,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -337,7 +374,20 @@
               <item name="audioSandbox" type="b2602c69:ProjectViewProjectNode" />
               <item name="audioSandbox" type="462c0819:PsiDirectoryNode" />
               <item name="ts" type="462c0819:PsiDirectoryNode" />
+              <item name="_declare" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="audioSandbox" type="b2602c69:ProjectViewProjectNode" />
+              <item name="audioSandbox" type="462c0819:PsiDirectoryNode" />
+              <item name="ts" type="462c0819:PsiDirectoryNode" />
               <item name="au" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="audioSandbox" type="b2602c69:ProjectViewProjectNode" />
+              <item name="audioSandbox" type="462c0819:PsiDirectoryNode" />
+              <item name="ts" type="462c0819:PsiDirectoryNode" />
+              <item name="au" type="462c0819:PsiDirectoryNode" />
+              <item name="envelope" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="audioSandbox" type="b2602c69:ProjectViewProjectNode" />
@@ -363,7 +413,6 @@
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -384,11 +433,11 @@
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\home\dev\Experiments\audioSandbox\ts\au\envelope" />
       <recent name="C:\home\dev\Experiments\audioSandbox\ts\tools" />
       <recent name="C:\home\dev\Experiments\audioSandbox\ts\au" />
       <recent name="C:\home\dev\Experiments\AudioSandbox\js" />
       <recent name="C:\home\dev\Experiments\AudioSandbox\js\dated" />
-      <recent name="D:\home\dev\Experiments\AudioSandbox\js\food" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -440,21 +489,22 @@
       <workItem from="1554824760395" duration="6285000" />
       <workItem from="1554940936451" duration="619000" />
       <workItem from="1555000181590" duration="2665000" />
-      <workItem from="1555087493314" duration="30868000" />
+      <workItem from="1555087493314" duration="46933000" />
+      <workItem from="1555504066363" duration="4902000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="228286000" />
+    <option name="totallyTimeSpent" value="249253000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-6" y="-6" width="1293" height="702" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info id="Favorites" order="0" side_tool="true" />
-      <window_info content_ui="combo" id="Project" order="1" sideWeight="0.67132866" visible="true" weight="0.17249602" />
+      <window_info active="true" content_ui="combo" id="Project" order="1" sideWeight="0.6695804" visible="true" weight="0.17249602" />
       <window_info auto_hide="true" x="1243" y="98" width="284" height="556" id="Structure" order="2" type="FLOATING" weight="0.24950495" />
-      <window_info active="true" x="208" y="470" width="370" height="339" id="TypeScript" order="3" sideWeight="0.32867134" side_tool="true" visible="true" weight="0.17249602" />
+      <window_info x="208" y="470" width="370" height="339" id="TypeScript" order="3" sideWeight="0.33041957" side_tool="true" visible="true" weight="0.17249602" />
       <window_info anchor="bottom" id="Event Log" order="0" side_tool="true" />
       <window_info anchor="bottom" id="Version Control" order="1" />
       <window_info anchor="bottom" id="Terminal" order="2" />
@@ -494,30 +544,6 @@
     <option name="version" value="1" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/js/dated/food/Ration.ts" />
-    <entry file="file://$PROJECT_DIR$/js/dated/food/Meal.ts" />
-    <entry file="file://$PROJECT_DIR$/libs/firebase.js" />
-    <entry file="file://$PROJECT_DIR$/ts/_declare/firebase.d.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="727">
-          <caret line="251" selection-start-line="251" selection-end-line="251" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ts/_declare/firebas-client.d.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="18">
-          <caret line="9" column="5" selection-start-line="9" selection-start-column="5" selection-end-line="9" selection-end-column="5" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tsconfig.json">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="333">
-          <caret line="9" column="19" selection-start-line="9" selection-start-column="19" selection-end-line="9" selection-end-column="19" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/libs/foodDb.js" />
     <entry file="file://$PROJECT_DIR$/js/dated/food/FoodTable.ts" />
     <entry file="file://$PROJECT_DIR$/js/dated/person/Card.ts" />
@@ -546,13 +572,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="508">
           <caret line="369" column="83" selection-start-line="369" selection-start-column="77" selection-end-line="369" selection-end-column="83" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ts/_declare/Globalz.d.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="45">
-          <caret line="3" lean-forward="true" selection-start-line="3" selection-end-line="3" />
         </state>
       </provider>
     </entry>
@@ -608,27 +627,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/WaveForm.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="227">
-          <caret line="93" selection-start-line="93" selection-end-line="93" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$APPLICATION_HOME_DIR$/plugins/JavaScriptLanguage/jsLanguageServicesImpl/external/lib.dom.d.ts">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="182">
           <caret line="2117" column="4" selection-start-line="2117" selection-start-column="4" selection-end-line="2117" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/index.html">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="240">
-          <caret line="16" column="20" selection-start-line="16" selection-start-column="20" selection-end-line="16" selection-end-column="20" />
-          <folding>
-            <element signature="n#style#0;n#span#1;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
-          </folding>
         </state>
       </provider>
     </entry>
@@ -660,23 +662,7 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/fx/Volume.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="18" selection-start-column="13" selection-end-column="18" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/AuMidi.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="127">
-          <caret line="119" column="84" lean-forward="true" selection-start-line="119" selection-start-column="84" selection-end-line="119" selection-end-column="84" />
-          <folding>
-            <element signature="n#style#0;n#b#0;n#!!top" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/fx/Volume.ts" />
     <entry file="file://$PROJECT_DIR$/ts/display/DispGraph.ts">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="203">
@@ -695,74 +681,147 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/AuSample.ts">
+    <entry file="file://$PROJECT_DIR$/ts/au/AuSample.ts" />
+    <entry file="file://$PROJECT_DIR$/index.html">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="29" selection-start-column="29" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/AuEngine.ts">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="167">
-          <caret line="55" column="3" lean-forward="true" selection-start-line="55" selection-start-column="3" selection-end-line="55" selection-end-column="3" />
+        <state relative-caret-position="82">
+          <caret line="11" column="6" lean-forward="true" selection-start-line="11" selection-start-column="6" selection-end-line="11" selection-end-column="6" />
           <folding>
-            <element signature="n#style#0;n#b#0;n#!!top" expanded="true" />
+            <element signature="n#style#0;n#span#1;n#div#0;n#body#0;n#html#0;n#!!top" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts">
+    <entry file="file://$PROJECT_DIR$/ts/au/Note.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="457">
-          <caret line="31" lean-forward="true" selection-start-line="31" selection-end-line="31" />
-          <folding>
-            <element signature="e#0#40#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="90">
+          <caret line="6" lean-forward="true" selection-start-line="6" selection-end-line="6" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/AuMidi.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2115">
+          <caret line="145" column="32" lean-forward="true" selection-start-line="145" selection-start-column="32" selection-end-line="145" selection-end-column="32" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/Utils.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="9" column="53" selection-start-line="9" selection-start-column="53" selection-end-line="9" selection-end-column="53" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/envelope/MidiNoteADSR.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="45">
+          <caret line="3" column="2" lean-forward="true" selection-start-line="3" selection-start-column="2" selection-end-line="3" selection-end-column="2" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/ts/au/fx/AuBiquadFilter.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="270">
-          <caret line="18" column="12" lean-forward="true" selection-start-line="18" selection-start-column="12" selection-end-line="18" selection-end-column="12" />
+        <state relative-caret-position="517">
+          <caret line="348" column="2" lean-forward="true" selection-start-line="348" selection-start-column="2" selection-end-line="348" selection-end-column="2" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts">
+    <entry file="file://$PROJECT_DIR$/ts/au/examples/MidiNoteOscillator.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="382">
-          <caret line="27" column="7" selection-start-line="27" selection-start-column="7" selection-end-line="27" selection-end-column="7" />
+        <state relative-caret-position="60">
+          <caret line="4" column="13" selection-start-line="4" selection-start-column="13" selection-end-line="4" selection-end-column="13" />
           <folding>
             <element signature="e#0#48#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/ts/au/examples/Oscillator.ts">
+    <entry file="file://$PROJECT_DIR$/ts/au/examples/NoteOscillator.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="74" selection-start-line="19" selection-start-column="74" selection-end-line="19" selection-end-column="74" />
+        <state relative-caret-position="120">
+          <caret line="8" column="23" selection-start-line="8" selection-start-column="23" selection-end-line="8" selection-end-column="23" />
           <folding>
-            <element signature="e#0#33#0" expanded="true" />
+            <element signature="e#78#115#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/_declare/Globalz.d.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="60">
+          <caret line="4" column="37" selection-start-line="4" selection-start-column="37" selection-end-line="4" selection-end-column="37" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/AuEngine.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="262">
+          <caret line="78" column="2" selection-start-line="78" selection-start-column="2" selection-end-line="78" selection-end-column="2" />
+          <folding>
+            <element signature="n#style#0;n#b#0;n#!!top" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/examples/SubtrSynth.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="330">
+          <caret line="27" column="73" selection-start-line="27" selection-start-column="17" selection-end-line="27" selection-end-column="73" />
+          <folding>
+            <element signature="e#0#48#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/ts/au/AuNode.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="22" column="20" lean-forward="true" selection-start-line="22" selection-start-column="20" selection-end-line="22" selection-end-column="20" />
+        <state relative-caret-position="442">
+          <caret line="53" lean-forward="true" selection-start-line="53" selection-end-line="53" />
           <folding>
             <element signature="e#30#66#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/WaveForm.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="76" column="18" selection-start-line="76" selection-start-column="18" selection-end-line="76" selection-end-column="18" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/examples/Oscillator.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="10" column="38" selection-start-line="10" selection-start-column="38" selection-end-line="10" selection-end-column="38" />
+          <folding>
+            <element signature="e#0#33#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/envelope/MidiADSR.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="165">
+          <caret line="11" selection-start-line="11" selection-end-line="11" />
+          <folding>
+            <element signature="e#0#28#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ts/au/envelope/ADSR.ts">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="322">
+          <caret line="54" column="22" lean-forward="true" selection-start-line="54" selection-start-column="22" selection-end-line="54" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/ts/Main.ts">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="367">
-          <caret line="54" column="32" lean-forward="true" selection-start-line="54" selection-start-column="32" selection-end-line="54" selection-end-column="32" />
+        <state relative-caret-position="105">
+          <caret line="63" column="44" lean-forward="true" selection-start-line="63" selection-start-column="44" selection-end-line="63" selection-end-column="44" />
           <folding>
             <element signature="e#0#39#0" expanded="true" />
           </folding>

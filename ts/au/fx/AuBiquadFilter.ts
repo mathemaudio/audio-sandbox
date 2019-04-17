@@ -1,6 +1,7 @@
 import {AuNode} from "../AuNode";
 
-export type AuBiquadType="one-pole lp"
+export type AuBiquadType=
+   "one-pole lp"
   |"one-pole hp"
   |"lowpass"
   |"highpass"
@@ -294,7 +295,7 @@ export class AuBiquadFilter extends AuNode{
   }
   memories:MemoryCell[];
 
-  onSample(s: number){
+  processSample(s: number){
     if(this.onSampleAction!=null)
       return this.onSampleAction(s);
     return s;
@@ -352,70 +353,6 @@ export class AuBiquadFilter extends AuNode{
       return ret;
     };
   }
-
-  /**
-   * Calculate the output of the cascade of biquad filters for an inputBuffer.
-   * @public
-   * @param inputBuffer Array of the same length of outputBuffer
-   * @param outputBuffer Array of the same length of inputBuffer
-   */
-  ssssprocesss(inputBuffer:number[], outputBuffer:number[]) {
-    let x:number;
-    let y:number[] = [];
-    let b1:number, b2:number, a1:number, a2:number;
-    let xi1:number, xi2:number, yi1:number, yi2:number, y1i1:number, y1i2:number;
-
-    for (let i = 0; i < inputBuffer.length; i++) {
-      x = inputBuffer[i];
-      // Save coefficients in local variables
-      b1 = this.coefficients[0].b1;
-      b2 = this.coefficients[0].b2;
-      a1 = this.coefficients[0].a1;
-      a2 = this.coefficients[0].a2;
-      // Save memories in local variables
-      xi1 = this.memories[0].xi1;
-      xi2 = this.memories[0].xi2;
-      yi1 = this.memories[0].yi1;
-      yi2 = this.memories[0].yi2;
-
-      // Formula: y[n] = x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
-      // First biquad
-      y[0] = x + b1 * xi1 + b2 * xi2 - a1 * yi1 - a2 * yi2;
-
-      for (let e = 1; e < this.numberOfCascade; e++) {
-        // Save coefficients in local variables
-        b1 = this.coefficients[e].b1;
-        b2 = this.coefficients[e].b2;
-        a1 = this.coefficients[e].a1;
-        a2 = this.coefficients[e].a2;
-        // Save memories in local variables
-        y1i1 = this.memories[e - 1].yi1;
-        y1i2 = this.memories[e - 1].yi2;
-        yi1 = this.memories[e].yi1;
-        yi2 = this.memories[e].yi2;
-
-        y[e] = y[e - 1] + b1 * y1i1 + b2 * y1i2 - a1 * yi1 - a2 * yi2;
-      }
-
-      // Write the output
-      outputBuffer[i] = y[this.numberOfCascade - 1] * this.coeffGain;
-
-      // Update the memories
-      this.memories[0].xi2 = this.memories[0].xi1;
-      this.memories[0].xi1 = x;
-
-      for (let p = 0; p < this.numberOfCascade; p++) {
-        this.memories[p].yi2 = this.memories[p].yi1;
-        this.memories[p].yi1 = y[p];
-      }
-    }
-  }
-
-
-
-
-
-
 
 
 
