@@ -586,7 +586,7 @@ define("au/AuEngine", ["require", "exports", "tools/Stor", "au/AuNode", "au/AuMi
     }(AuNode_2.AuNode));
     exports.AuEngine = AuEngine;
 });
-define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "Main"], function (require, exports, Oscillator_1, Main_1) {
+define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscillator", "Main", "tools/Calc"], function (require, exports, Oscillator_1, Main_1, Calc_4) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var NoteOscillator = (function (_super) {
@@ -595,14 +595,29 @@ define("au/examples/NoteOscillator", ["require", "exports", "au/examples/Oscilla
             if (waveGenerator === void 0) { waveGenerator = null; }
             var _this = _super.call(this, 0, waveGenerator) || this;
             _this.multiplier = multiplier;
+            _this.count = 0;
             Main_1.Main.me.screen.signalOutput.baseFrequencyProvider = function () { return _this.frequency; };
             return _this;
         }
         NoteOscillator.prototype.processSample = function (s) {
             var n = this.note;
             this.on = n != null;
-            this.frequency = (this.on ? (n.freqPitched) : 0) * this.multiplier;
+            var targetFreq = (this.on ? (n.freqPitched) : 0) * this.multiplier;
+            this.frequency = Calc_4.Calc.mix(targetFreq, this.frequency, this.porto2coef(this.portamento));
+            var r = function (n) { return Math.round(n * 100) / 100; };
             return _super.prototype.processSample.call(this, s);
+        };
+        NoteOscillator.prototype.porto2coef = function (porto) {
+            var r = Calc_4.Calc.remix;
+            if (porto == 0)
+                return 0;
+            if (porto < .1)
+                return r(0, .1, porto, 0, .999);
+            if (porto < .5)
+                return r(.1, .5, porto, .99, .9993);
+            if (porto < 1)
+                return r(.5, .1, porto, .999, .9999);
+            return .99999;
         };
         return NoteOscillator;
     }(Oscillator_1.Oscillator));
@@ -626,12 +641,12 @@ define("au/examples/MidiNoteOscillator", ["require", "exports", "au/examples/Not
     }(NoteOscillator_1.NoteOscillator));
     exports.MidiNoteOscillator = MidiNoteOscillator;
 });
-define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"], function (require, exports, Calc_4, AuEngine_3) {
+define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"], function (require, exports, Calc_5, AuEngine_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Graphics = PIXI.Graphics;
-    var rmx = Calc_4.Calc.remix;
-    var mx = Calc_4.Calc.mix;
+    var rmx = Calc_5.Calc.remix;
+    var mx = Calc_5.Calc.mix;
     var DispGraph = (function (_super) {
         __extends(DispGraph, _super);
         function DispGraph(size) {
@@ -707,14 +722,14 @@ define("display/DispGraph", ["require", "exports", "tools/Calc", "au/AuEngine"],
                 startSampleIdx = this.findTheLoudestFirstSample(channel);
                 this.lineStyle(2, 0x33ccff, 1);
                 for (var i = 0; i < sz.w; i += this.resolution) {
-                    var I = Calc_4.Calc.unmix(0, sz.w, i);
+                    var I = Calc_5.Calc.unmix(0, sz.w, i);
                     var sampleIdx = Math.floor(mx(0, this.samplesToDraw, I));
                     var dat = buffer.getChannelData(channel);
                     var idx = startSampleIdx + sampleIdx;
                     if (idx >= buffer.length)
                         continue;
                     var spl = idx < buffer.length ? dat[idx] : -1;
-                    var splCurrent = Calc_4.Calc.unmix(-1, 1, spl);
+                    var splCurrent = Calc_5.Calc.unmix(-1, 1, spl);
                     var y = rmx(1, -1, spl, sz.y, sz.y + sz.h);
                     if (i == 0)
                         this.moveTo(i, y);
@@ -768,7 +783,168 @@ define("display/MainScreen", ["require", "exports", "display/DispGraph", "au/AuE
     }());
     exports.MainScreen = MainScreen;
 });
-define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_3) {
+define("au/fx/AuVolume", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_3) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var AuVolume = (function (_super) {
+        __extends(AuVolume, _super);
+        function AuVolume(volume) {
+            var _this = _super.call(this) || this;
+            _this.volume = volume;
+            return _this;
+        }
+        AuVolume.prototype.processSample = function (s) {
+            return s * this.volume;
+        };
+        return AuVolume;
+    }(AuNode_3.AuNode));
+    exports.AuVolume = AuVolume;
+});
+define("au/envelope/ADSR", ["require", "exports", "au/AuNode", "au/AuEngine"], function (require, exports, AuNode_4, AuEngine_5) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var fromSec = function (sec) { return AuEngine_5.AuEngine._.sec2spl(sec); };
+    var toSec = function (spl) { return AuEngine_5.AuEngine._.spl2sec(spl); };
+    var ADSRStage;
+    (function (ADSRStage) {
+        ADSRStage[ADSRStage["nothing"] = -1] = "nothing";
+        ADSRStage[ADSRStage["attack"] = 0] = "attack";
+        ADSRStage[ADSRStage["decay"] = 1] = "decay";
+        ADSRStage[ADSRStage["sustain"] = 2] = "sustain";
+        ADSRStage[ADSRStage["release"] = 3] = "release";
+    })(ADSRStage || (ADSRStage = {}));
+    var ADSR = (function (_super) {
+        __extends(ADSR, _super);
+        function ADSR(attack, decay, sustain, release) {
+            if (attack === void 0) { attack = .1; }
+            if (decay === void 0) { decay = .5; }
+            if (sustain === void 0) { sustain = .6; }
+            if (release === void 0) { release = .7; }
+            var _this = _super.call(this) || this;
+            _this.val = 0;
+            _this.step = 0;
+            _this.stage = ADSRStage.nothing;
+            _this.start = function () {
+                _this.position = 0;
+                _this.switchStage(ADSRStage.attack);
+            };
+            _this.end = function () {
+                _this.switchStage(ADSRStage.release);
+            };
+            _this.attack = attack;
+            _this.decay = decay;
+            _this.sustain = sustain;
+            _this.release = release;
+            return _this;
+        }
+        ADSR.prototype.processSample = function (s) {
+            var _this = this;
+            if (this.stage != ADSRStage.nothing)
+                this.position++;
+            this.val += this.step;
+            var sw = function (to) { return _this.switchStage(to); };
+            switch (this.stage) {
+                case ADSRStage.attack:
+                    if (this.val >= 1) {
+                        this.val = 1;
+                        sw(ADSRStage.decay);
+                    }
+                    break;
+                case ADSRStage.decay:
+                    if (this.val <= this.sustain) {
+                        this.val = this.sustain;
+                        sw(ADSRStage.sustain);
+                    }
+                    break;
+                case ADSRStage.release:
+                    if (this.val <= 0) {
+                        this.val = 0;
+                        sw(ADSRStage.nothing);
+                    }
+                    break;
+            }
+            return this.val * s;
+        };
+        ADSR.prototype.switchStage = function (newStage) {
+            var _this = this;
+            if (this == undefined)
+                debugger;
+            this.stage = newStage;
+            var updateStep = function (sec, targetVal) {
+                var gap = targetVal - _this.val;
+                _this.step = ((sec == 0 ? 1 : Math.min(1, 1 / _this.sampleRate / sec)) * gap);
+            };
+            switch (this.stage) {
+                case ADSRStage.attack:
+                    updateStep(this.attack, 1);
+                    break;
+                case ADSRStage.decay:
+                    updateStep(this.decay, this.sustain);
+                    break;
+                case ADSRStage.sustain:
+                    this.step = 0;
+                    break;
+                case ADSRStage.release:
+                    updateStep(this.release, 0);
+                    break;
+                case ADSRStage.nothing:
+                    this.step = 0;
+                    break;
+            }
+        };
+        return ADSR;
+    }(AuNode_4.AuNode));
+    exports.ADSR = ADSR;
+});
+define("au/envelope/MidiADSR", ["require", "exports", "au/envelope/ADSR"], function (require, exports, ADSR_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var MidiADSR = (function (_super) {
+        __extends(MidiADSR, _super);
+        function MidiADSR(attack, decay, sustain, release) {
+            if (attack === void 0) { attack = .01; }
+            if (decay === void 0) { decay = .75; }
+            if (sustain === void 0) { sustain = .36; }
+            if (release === void 0) { release = .4; }
+            var _this = _super.call(this, attack, decay, sustain, release) || this;
+            $(document).on('midi.topNote', function (e, note) {
+                if (note != null)
+                    _this.start();
+                else
+                    _this.end();
+            });
+            return _this;
+        }
+        return MidiADSR;
+    }(ADSR_1.ADSR));
+    exports.MidiADSR = MidiADSR;
+});
+define("TheCoolOscillator", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_5) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    var TheCoolOscillator = (function (_super) {
+        __extends(TheCoolOscillator, _super);
+        function TheCoolOscillator() {
+            var _this = _super.call(this) || this;
+            _this.phase = 0;
+            _this.frequency = 500;
+            return _this;
+        }
+        TheCoolOscillator.prototype.process = function (buffer) {
+            for (var sample = 0; sample < buffer.length; ++sample) {
+                this.phase += this.frequency / buffer.sampleRate;
+                this.frequency += .005;
+                if (this.phase > 1)
+                    this.phase -= 1;
+                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
+                    buffer.getChannelData(channel)[sample] = Math.sin(this.phase * Math.PI * 2);
+            }
+        };
+        return TheCoolOscillator;
+    }(AuNode_5.AuNode));
+    exports.TheCoolOscillator = TheCoolOscillator;
+});
+define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_6) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var AuBiquadFilter = (function (_super) {
@@ -776,9 +952,8 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
         function AuBiquadFilter(type, frequency, sampleRate, Q, peakGain) {
             var _this = _super.call(this) || this;
             _this.appliedTimes = 0;
+            _this.memories = { xi1: 0, xi2: 0, yi1: 0, yi2: 0 };
             _this.initOnSampleAction();
-            _this.coefficients = [];
-            _this.numberOfCascade = 1;
             _this.resetMemories();
             _this._type = type;
             _this._frequency = frequency;
@@ -828,11 +1003,10 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
             this.appliedTimes++;
             var p = this;
             var coef = this.calcBiquad(p.type, p.frequency, p.sampleRate, p.Q, p.peakGain);
-            this.setCoefficients([coef.a0, coef.a1, coef.a2, coef.b1, coef.b2], reset);
+            this.setCoefficients(coef, reset);
         };
         AuBiquadFilter.prototype.calcBiquad = function (type, frequency, sampleRate, Q, peakGain) {
             var a0, a1, a2, b1, b2, norm;
-            var ymin, ymax, minVal, maxVal;
             var V = Math.pow(10, Math.abs(peakGain) / 20);
             var K = Math.tan(Math.PI * frequency / sampleRate);
             switch (type) {
@@ -939,18 +1113,13 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
         };
         AuBiquadFilter.prototype.setCoefficients = function (coef, reset) {
             if (coef) {
-                this.numberOfCascade = this.getNumberOfCascadeFilters(coef);
-                this.coefficients = [];
-                this.coeffGain = coef[0];
-                for (var i = 0; i < this.numberOfCascade; i++) {
-                    this.coefficients[i] = {
-                        b1: coef[1 + i * 4],
-                        b2: coef[2 + i * 4],
-                        a0: 1,
-                        a1: coef[3 + i * 4],
-                        a2: coef[4 + i * 4]
-                    };
-                }
+                this.coefficients = {
+                    b1: coef.a1,
+                    b2: coef.a2,
+                    a0: coef.a0,
+                    a1: coef.b1,
+                    a2: coef.b2
+                };
                 if (reset)
                     this.resetMemories();
                 return true;
@@ -959,20 +1128,9 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
                 throw new Error("No coefficients are set");
             }
         };
-        AuBiquadFilter.prototype.getNumberOfCascadeFilters = function (coef) { return (coef.length - 1) / 4; };
         AuBiquadFilter.prototype.resetMemories = function () {
-            this.memories = [{
-                    xi1: 0,
-                    xi2: 0,
-                    yi1: 0,
-                    yi2: 0
-                }];
-            for (var i = 1; i < this.numberOfCascade; i++) {
-                this.memories[i] = {
-                    yi1: 0,
-                    yi2: 0
-                };
-            }
+            var mem = this.memories;
+            mem.xi1 = mem.xi2 = mem.yi1 = mem.yi2 = 0;
         };
         AuBiquadFilter.prototype.processSample = function (s) {
             if (this.onSampleAction != null)
@@ -981,240 +1139,51 @@ define("au/fx/AuBiquadFilter", ["require", "exports", "au/AuNode"], function (re
         };
         AuBiquadFilter.prototype.initOnSampleAction = function () {
             var _this = this;
-            var x;
-            var y = [];
-            var b1, b2, a1, a2;
-            var xi1, xi2, yi1, yi2, y1i1, y1i2;
+            var y;
+            var mem = this.memories;
             this.onSampleAction = function (x) {
-                b1 = _this.coefficients[0].b1;
-                b2 = _this.coefficients[0].b2;
-                a1 = _this.coefficients[0].a1;
-                a2 = _this.coefficients[0].a2;
-                xi1 = _this.memories[0].xi1;
-                xi2 = _this.memories[0].xi2;
-                yi1 = _this.memories[0].yi1;
-                yi2 = _this.memories[0].yi2;
-                y[0] = x + b1 * xi1 + b2 * xi2 - a1 * yi1 - a2 * yi2;
-                for (var e = 1; e < _this.numberOfCascade; e++) {
-                    b1 = _this.coefficients[e].b1;
-                    b2 = _this.coefficients[e].b2;
-                    a1 = _this.coefficients[e].a1;
-                    a2 = _this.coefficients[e].a2;
-                    y1i1 = _this.memories[e - 1].yi1;
-                    y1i2 = _this.memories[e - 1].yi2;
-                    yi1 = _this.memories[e].yi1;
-                    yi2 = _this.memories[e].yi2;
-                    y[e] = y[e - 1] + b1 * y1i1 + b2 * y1i2 - a1 * yi1 - a2 * yi2;
-                }
-                var ret = y[_this.numberOfCascade - 1] * _this.coeffGain;
-                _this.memories[0].xi2 = _this.memories[0].xi1;
-                _this.memories[0].xi1 = x;
-                for (var p = 0; p < _this.numberOfCascade; p++) {
-                    _this.memories[p].yi2 = _this.memories[p].yi1;
-                    _this.memories[p].yi1 = y[p];
-                }
-                return ret;
+                var coef = _this.coefficients;
+                y = x
+                    + coef.b1 * mem.xi1
+                    + coef.b2 * mem.xi2
+                    - coef.a1 * mem.yi1
+                    - coef.a2 * mem.yi2;
+                mem.xi2 = mem.xi1;
+                mem.xi1 = x;
+                mem.yi2 = mem.yi1;
+                mem.yi1 = y;
+                return y * coef.a0;
             };
         };
         return AuBiquadFilter;
-    }(AuNode_3.AuNode));
+    }(AuNode_6.AuNode));
     exports.AuBiquadFilter = AuBiquadFilter;
 });
-define("au/examples/SubtrSynth", ["require", "exports", "au/examples/NoteOscillator", "au/fx/AuBiquadFilter", "tools/Calc", "au/AuMidi"], function (require, exports, NoteOscillator_2, AuBiquadFilter_1, Calc_5, AuMidi_2) {
+define("au/fx/AuSillyFilter", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_7) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var SubtrSynth = (function (_super) {
-        __extends(SubtrSynth, _super);
-        function SubtrSynth(multiplier) {
-            var _this = _super.call(this, multiplier) || this;
-            _this.midi2lowpass = function () {
-                _this.lowpass.frequency = Calc_5.Calc.mix(300, 8000, _this.cutoff.nextSmoothed);
-                _this.lowpass.Q = Calc_5.Calc.mix(1, 22, _this.resonance.nextSmoothed);
-            };
-            _this.midi = AuMidi_2.AuMidi._;
-            _this.cutoff = _this.midi.cutoff;
-            _this.attack = _this.midi.attack;
-            _this.modulation = _this.midi.modulation;
-            _this.resonance = _this.midi.resonance;
-            _this.lowpass = new AuBiquadFilter_1.AuBiquadFilter('lowpass', 1000, _this.sampleRate, 3, 6);
-            _this.midi2lowpass();
-            return _this;
-        }
-        SubtrSynth.prototype.processSample = function (s) {
-            this.midi2lowpass();
-            return _super.prototype.processSample.call(this, s);
-        };
-        SubtrSynth.prototype.outTo = function (child) {
-            _super.prototype.outTo.call(this, this.lowpass);
-            this.lowpass.outTo(child);
-            return child;
-        };
-        return SubtrSynth;
-    }(NoteOscillator_2.NoteOscillator));
-    exports.SubtrSynth = SubtrSynth;
-});
-define("au/fx/AuVolume", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_4) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var AuVolume = (function (_super) {
-        __extends(AuVolume, _super);
-        function AuVolume(volume) {
+    var AuSillyFilter = (function (_super) {
+        __extends(AuSillyFilter, _super);
+        function AuSillyFilter() {
             var _this = _super.call(this) || this;
-            _this.volume = volume;
+            _this.curr = 0;
+            _this.delta = 0;
+            _this.speed = 0.03;
             return _this;
         }
-        AuVolume.prototype.processSample = function (s) {
-            return s * this.volume;
+        AuSillyFilter.prototype.processSample = function (s) {
+            var diff = s - this.curr;
+            this.delta += (diff > 0 ? 1 : -1) * this.speed;
+            if (this.delta > 0 && diff < 0 || this.delta < 0 && diff > 0)
+                this.delta *= (1 - (this.speed * 1));
+            this.curr += this.delta;
+            return this.curr * .3;
         };
-        return AuVolume;
-    }(AuNode_4.AuNode));
-    exports.AuVolume = AuVolume;
+        return AuSillyFilter;
+    }(AuNode_7.AuNode));
+    exports.AuSillyFilter = AuSillyFilter;
 });
-define("au/envelope/ADSR", ["require", "exports", "au/AuNode", "au/AuEngine"], function (require, exports, AuNode_5, AuEngine_5) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var fromSec = function (sec) { return AuEngine_5.AuEngine._.sec2spl(sec); };
-    var toSec = function (spl) { return AuEngine_5.AuEngine._.spl2sec(spl); };
-    var ADSRStage;
-    (function (ADSRStage) {
-        ADSRStage[ADSRStage["nothing"] = -1] = "nothing";
-        ADSRStage[ADSRStage["attack"] = 0] = "attack";
-        ADSRStage[ADSRStage["decay"] = 1] = "decay";
-        ADSRStage[ADSRStage["sustain"] = 2] = "sustain";
-        ADSRStage[ADSRStage["release"] = 3] = "release";
-    })(ADSRStage || (ADSRStage = {}));
-    var ADSR = (function (_super) {
-        __extends(ADSR, _super);
-        function ADSR(attack, decay, sustain, release) {
-            if (attack === void 0) { attack = .1; }
-            if (decay === void 0) { decay = .5; }
-            if (sustain === void 0) { sustain = .6; }
-            if (release === void 0) { release = .7; }
-            var _this = _super.call(this) || this;
-            _this.val = 0;
-            _this.step = 0;
-            _this.stage = ADSRStage.nothing;
-            _this.start = function () {
-                _this.position = 0;
-                _this.switchStage(ADSRStage.attack);
-            };
-            _this.end = function () {
-                _this.switchStage(ADSRStage.release);
-            };
-            _this.attack = attack;
-            _this.decay = decay;
-            _this.sustain = sustain;
-            _this.release = release;
-            return _this;
-        }
-        ADSR.prototype.processSample = function (s) {
-            var _this = this;
-            if (this.stage != ADSRStage.nothing)
-                this.position++;
-            this.val += this.step;
-            var sw = function (to) { return _this.switchStage(to); };
-            switch (this.stage) {
-                case ADSRStage.attack:
-                    if (this.val >= 1) {
-                        this.val = 1;
-                        sw(ADSRStage.decay);
-                    }
-                    break;
-                case ADSRStage.decay:
-                    if (this.val <= this.sustain) {
-                        this.val = this.sustain;
-                        sw(ADSRStage.sustain);
-                    }
-                    break;
-                case ADSRStage.release:
-                    if (this.val <= 0) {
-                        this.val = 0;
-                        sw(ADSRStage.nothing);
-                    }
-                    break;
-            }
-            return this.val * s;
-        };
-        ADSR.prototype.switchStage = function (newStage) {
-            var _this = this;
-            if (this == undefined)
-                debugger;
-            this.stage = newStage;
-            var updateStep = function (sec, targetVal) {
-                var gap = targetVal - _this.val;
-                _this.step = ((sec == 0 ? 1 : Math.min(1, 1 / _this.sampleRate / sec)) * gap);
-            };
-            switch (this.stage) {
-                case ADSRStage.attack:
-                    updateStep(this.attack, 1);
-                    break;
-                case ADSRStage.decay:
-                    updateStep(this.decay, this.sustain);
-                    break;
-                case ADSRStage.sustain:
-                    this.step = 0;
-                    break;
-                case ADSRStage.release:
-                    updateStep(this.release, 0);
-                    break;
-                case ADSRStage.nothing:
-                    this.step = 0;
-                    break;
-            }
-        };
-        return ADSR;
-    }(AuNode_5.AuNode));
-    exports.ADSR = ADSR;
-});
-define("au/envelope/MidiADSR", ["require", "exports", "au/envelope/ADSR"], function (require, exports, ADSR_1) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var MidiADSR = (function (_super) {
-        __extends(MidiADSR, _super);
-        function MidiADSR(attack, decay, sustain, release) {
-            if (attack === void 0) { attack = .01; }
-            if (decay === void 0) { decay = .75; }
-            if (sustain === void 0) { sustain = .36; }
-            if (release === void 0) { release = .4; }
-            var _this = _super.call(this, attack, decay, sustain, release) || this;
-            $(document).on('midi.topNote', function (e, note) {
-                if (note != null)
-                    _this.start();
-                else
-                    _this.end();
-            });
-            return _this;
-        }
-        return MidiADSR;
-    }(ADSR_1.ADSR));
-    exports.MidiADSR = MidiADSR;
-});
-define("TheCoolOscillator", ["require", "exports", "au/AuNode"], function (require, exports, AuNode_6) {
-    "use strict";
-    Object.defineProperty(exports, "__esModule", { value: true });
-    var TheCoolOscillator = (function (_super) {
-        __extends(TheCoolOscillator, _super);
-        function TheCoolOscillator() {
-            var _this = _super.call(this) || this;
-            _this.phase = 0;
-            _this.frequency = 500;
-            return _this;
-        }
-        TheCoolOscillator.prototype.process = function (buffer) {
-            for (var sample = 0; sample < buffer.length; ++sample) {
-                this.phase += this.frequency / buffer.sampleRate;
-                this.frequency += .005;
-                if (this.phase > 1)
-                    this.phase -= 1;
-                for (var channel = 0; channel < buffer.numberOfChannels; ++channel)
-                    buffer.getChannelData(channel)[sample] = Math.sin(this.phase * Math.PI * 2);
-            }
-        };
-        return TheCoolOscillator;
-    }(AuNode_6.AuNode));
-    exports.TheCoolOscillator = TheCoolOscillator;
-});
-define("Main", ["require", "exports", "au/AuEngine", "au/examples/MidiNoteOscillator", "display/MainScreen", "au/fx/AuVolume", "au/AuMidi", "au/envelope/MidiADSR", "TheCoolOscillator", "tools/Calc", "au/WaveForm", "au/fx/AuBiquadFilter"], function (require, exports, AuEngine_6, MidiNoteOscillator_1, MainScreen_1, AuVolume_1, AuMidi_3, MidiADSR_1, TheCoolOscillator_1, Calc_6, WaveForm_2, AuBiquadFilter_2) {
+define("Main", ["require", "exports", "au/AuEngine", "au/examples/MidiNoteOscillator", "display/MainScreen", "au/fx/AuVolume", "au/AuMidi", "au/envelope/MidiADSR", "TheCoolOscillator", "tools/Calc", "au/WaveForm", "au/fx/AuBiquadFilter", "au/fx/AuSillyFilter"], function (require, exports, AuEngine_6, MidiNoteOscillator_1, MainScreen_1, AuVolume_1, AuMidi_2, MidiADSR_1, TheCoolOscillator_1, Calc_6, WaveForm_2, AuBiquadFilter_1, AuSillyFilter_1) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     var Main = (function () {
@@ -1243,17 +1212,24 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/MidiNoteOscill
             $(document).on('midi.topNote', function (e, _note) {
                 if (_note != null) {
                     note = _note;
+                    envFilter.decay = Calc_6.Calc.mix(.1, 1, note.vel);
                 }
             });
-            var osc = new MidiNoteOscillator_1.MidiNoteOscillator(1, WaveForm_2.WaveForm.pulse), envVol = new MidiADSR_1.MidiADSR(.01, .75, .5, .9);
-            var filter = new AuBiquadFilter_2.AuBiquadFilter('lowpass', 1000, this.engine.sampleRate, 3, 6);
-            var res = AuMidi_3.AuMidi._.resonance;
+            var osc = new MidiNoteOscillator_1.MidiNoteOscillator(1, WaveForm_2.WaveForm.saw), envVol = new MidiADSR_1.MidiADSR(.01, .75, .5, .9);
+            var filter = new AuBiquadFilter_1.AuBiquadFilter('lowpass', 1000, this.engine.sampleRate, 3, 6);
+            var sillyFilter = new AuSillyFilter_1.AuSillyFilter();
+            var res = AuMidi_2.AuMidi._.resonance;
+            osc.portamento = .0;
             osc
                 .outTo(filter)
                 .outTo(envVol)
                 .outTo(this.engine);
+            sillyFilter.beforeOnSample = function () {
+                var vol = note != null ? Calc_6.Calc.mix(.4, 1, note.vel) : .8;
+                sillyFilter.speed = Calc_6.Calc.mix(.007, .2, envFilter.getNextSample(vol));
+            };
             filter.beforeOnSample = function () {
-                var vol = note != null ? Calc_6.Calc.mix(.6, 1, note.vel) : .8;
+                var vol = note != null ? Calc_6.Calc.mix(.2, 1, note.vel) : .8;
                 filter.frequency = Calc_6.Calc.mix(300, 4000, envFilter.getNextSample(vol));
                 filter.Q = Calc_6.Calc.mix(1, 6, res.nextSmoothed);
             };
@@ -1267,8 +1243,8 @@ define("Main", ["require", "exports", "au/AuEngine", "au/examples/MidiNoteOscill
                 .outTo(new MidiADSR_1.MidiADSR(0.001, 2, .5, .3))
                 .outTo(new AuVolume_1.AuVolume(.7))
                 .outTo(this.engine);
-            var res = AuMidi_3.AuMidi._.resonance;
-            var freq = AuMidi_3.AuMidi._.cutoff;
+            var res = AuMidi_2.AuMidi._.resonance;
+            var freq = AuMidi_2.AuMidi._.cutoff;
             fmStrength.beforeOnSample = function () {
                 fmStrength.volume = res.nextSmoothed * 3;
                 osc.multiplier = Calc_6.Calc.mix(0, 2, freq.nextSmoothed);

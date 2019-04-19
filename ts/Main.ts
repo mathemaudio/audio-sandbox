@@ -1,7 +1,6 @@
 import {AuEngine} from "./au/AuEngine";
 import {MidiNoteOscillator} from "./au/examples/MidiNoteOscillator";
 import {MainScreen} from "./display/MainScreen";
-import {SubtrSynth} from "./au/examples/SubtrSynth";
 import {AuVolume} from "./au/fx/AuVolume";
 import {AuMidi} from "./au/AuMidi";
 import {MidiADSR} from "./au/envelope/MidiADSR";
@@ -10,6 +9,7 @@ import {Calc} from "./tools/Calc";
 import {WaveForm} from "./au/WaveForm";
 import {AuBiquadFilter} from "./au/fx/AuBiquadFilter";
 import {Note} from "./au/Note";
+import {AuSillyFilter} from "./au/fx/AuSillyFilter";
 
 /**
  * todo:
@@ -61,19 +61,28 @@ export class Main{
     $(document).on('midi.topNote', (e:any, _note:Note)=>{
       if(_note!=null){
         note=_note;
+        envFilter.decay = Calc.mix(.1, 1, note.vel);
         // envFilter.attack = Calc.mix(.1, .0003, Math.random());
       }
     });
-    const osc=new MidiNoteOscillator(1, WaveForm.pulse),
+    const osc=new MidiNoteOscillator(1, WaveForm.saw),
               envVol=new MidiADSR(.01, .75, .5, .9);
     const filter=new AuBiquadFilter('lowpass', 1000,this.engine.sampleRate,3,6);
+    const sillyFilter=new AuSillyFilter();
     const res = AuMidi._.resonance;
+    osc.portamento=.0;
     osc
       .outTo(filter)
+      // .outTo(sillyFilter)
       .outTo(envVol)
       .outTo(this.engine);
+
+    sillyFilter.beforeOnSample=()=>{
+      const vol = note!=null?Calc.mix(.4, 1, note.vel):.8;
+      sillyFilter.speed = Calc.mix(.007, .2, envFilter.getNextSample(vol));
+    };
     filter.beforeOnSample=()=>{
-      const vol = note!=null?Calc.mix(.6, 1, note.vel):.8;
+      const vol = note!=null?Calc.mix(.2, 1, note.vel):.8;
       filter.frequency = Calc.mix(300, 4000, envFilter.getNextSample(vol));
       filter.Q = Calc.mix(1,6, res.nextSmoothed);
     };
