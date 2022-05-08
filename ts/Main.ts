@@ -1,6 +1,6 @@
 import {MainScreen} from "./display/MainScreen";
 import {TheCoolOscillator} from "./TheCoolOscillator";
-/// the main project fine
+// the main project fine
 export class Main{
   static me:Main;
   constructor(){
